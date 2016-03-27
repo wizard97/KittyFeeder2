@@ -34,6 +34,7 @@ private:
 public:
     FeedCompart(Servo &doorServo, uint16_t eepromLoc, uint16_t closeDeg, uint16_t openDeg);
     ~FeedCompart();
+    Servo &getServo();
 };
 
 FeedCompart::FeedCompart(Servo &doorServo, uint16_t eepromLoc, uint16_t closeDeg, uint16_t openDeg)
@@ -61,6 +62,12 @@ FeedCompart::~FeedCompart()
 {
     doorServo.write(closeDeg);
     saveSettingsToEE();
+}
+
+
+Servo &FeedCompart::getServo()
+{
+    return doorServo;
 }
 
 bool FeedCompart::loadSettingsFromEE()

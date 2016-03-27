@@ -5,13 +5,23 @@
 #include <avr/wdt.h>
 #include <string.h>
 
-
 #define _TASK_WDT_IDS
 #include <TaskScheduler.h>
 #include "FeedCompart.h"
 
 #define VERSION "v2.0"
 #define RTC_SYNC_INTERVAL 30
+
+#define SERVO1_PIN 9
+#define SERVO1_OPEN 90
+#define SERVO1_CLOSE 0
+
+#define SERVO2_PIN 10
+#define SERVO2_OPEN 0
+#define SERVO2_CLOSE 90
+
+// Requires two bytes from this index
+#define EEPROM_WDT_DEBUG_LOC 254
 
 #ifdef NDEBUG
 #define DEBUG(M, ...)
@@ -35,6 +45,15 @@ char error_buf[75];
 
 // Watchdog Timer
 void wdtService(); bool wdtOn(); void wdtOff();
+
+// Declare all your feed compartments and link them with servos
+Servo sDoor1;
+Servo sDoor2;
+FeedCompart feeds[] = {
+  FeedCompart(sDoor1, 3, SERVO1_CLOSE, SERVO1_OPEN),
+  FeedCompart(sDoor2, 3 + sizeof(FeedCompart), SERVO2_CLOSE, SERVO2_OPEN),
+  };
+
 
 Scheduler ts;
 
@@ -63,9 +82,15 @@ void setup() {
   {
     ERROR("Watchdog triggered reset for task: %u", EEPROM.read(0));
     ERROR("Control Point: %u", EEPROM.read(1));
-    EEPROM.write(0, 0);
-    EEPROM.write(1, 0);
+    EEPROM.write(EEPROM_WDT_DEBUG_LOC, 0);
+    EEPROM.write(EEPROM_WDT_DEBUG_LOC + 1, 0);
   }
+  // Attach Servos
+  sDoor1.attach(SERVO1_PIN);
+  sDoor2.attach(SERVO2_PIN);
+
+  //This is a test
+  feeds[0].getServo().write(20);
   
   delay(2000);
 
@@ -118,8 +143,8 @@ ISR(WDT_vect)
   Task& T = ts.currentTask();
 
   digitalWrite(13, HIGH);
-  EEPROM.write(0, (byte)T.getId());
-  EEPROM.write(1, (byte)T.getControlPoint());
+  EEPROM.write(EEPROM_WDT_DEBUG_LOC, (byte)T.getId());
+  EEPROM.write(EEPROM_WDT_DEBUG_LOC+1, (byte)T.getControlPoint());
   digitalWrite(13, LOW);
 }
 
