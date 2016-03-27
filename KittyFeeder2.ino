@@ -1,3 +1,4 @@
+#include <Servo.h>
 #include <DS3232RTC.h>
 #include <TimeLib.h>
 #include <EEPROM.h>
@@ -7,6 +8,7 @@
 
 #define _TASK_WDT_IDS
 #include <TaskScheduler.h>
+#include "FeedCompart.h"
 
 #define VERSION "v2.0"
 #define RTC_SYNC_INTERVAL 30
@@ -29,6 +31,7 @@ char error_buf[75];
     Serial.println(error_buf); \
   } while (0)
 #endif
+
 
 // Watchdog Timer
 void wdtService(); bool wdtOn(); void wdtOff();
