@@ -1,4 +1,4 @@
-#include <DS3232RTC.h>
+#include <DS1307RTC.h>
 #include <TimeLib.h>
 #include <EEPROM.h>
 #include <avr/wdt.h>

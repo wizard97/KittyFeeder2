@@ -3,7 +3,7 @@
 #ifndef FEEDER_UTILS_H
 #define FEEDER_UTILS_H
 
-#define ERROR_BUF_SIZE 75
+#define ERROR_BUF_SIZE 90
 
 #ifdef NDEBUG
 #define DEBUG(M, ...)

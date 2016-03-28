@@ -76,7 +76,18 @@ openDeg(openDeg), closeDeg(closeDeg), id(++_id_counter)
 {
     currDoorState = CLOSED;
     msStateChange = 0;
+}
 
+FeedCompart::~FeedCompart()
+{
+    doorServo.write(closeDeg);
+    doorServo.detach();
+    saveSettingsToEE();
+}
+
+
+void FeedCompart::begin()
+{
     // If loading settings failed, set to sensible defaults
     if(!loadSettingsFromEE())
     {
@@ -90,24 +101,16 @@ openDeg(openDeg), closeDeg(closeDeg), id(++_id_counter)
         saveSettingsToEE();
     }
 
-}
-
-FeedCompart::~FeedCompart()
-{
-    doorServo.write(closeDeg);
-    doorServo.detach();
-    saveSettingsToEE();
-}
-
-
-void FeedCompart::begin()
-{
     doorServo.attach(servoPin);
     doorServo.write(closeDeg);
-    DEBUG("Feed Door %d: Servo attached to %d", id, servoPin);
-    DEBUG("Feed Door %d: %s with set time: %s %d:%d:%d",
-        id, settings.enabled ? "ENABLED" : "DISABLED", dayShortStr(settings.Wday),
-        hour(settings.Hour), minute(settings.Minute));
+    DEBUG("Feed Door %d: Servo attached to pin %d", id, servoPin);
+    // No idea why I'm having to do this...
+    char tmp[5];
+    strcpy(tmp, dayShortStr(settings.Wday));
+
+    DEBUG("Feed Door %d: %s with set time: %s %d:%d",
+        id, settings.enabled ? "ENABLED" : "DISABLED", tmp,
+        settings.Hour, settings.Minute);
 }
 
 void FeedCompart::service()
