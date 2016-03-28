@@ -23,7 +23,7 @@ char error_buf[ERROR_BUF_SIZE];
 #define SERVO2_CLOSE 90
 
 // Requires two bytes from this index
-#define EEPROM_WDT_DEBUG_LOC 254
+#define EEPROM_WDT_DEBUG_LOC (EEPROM.length()-3)
 
 
 // Watchdog Timer
@@ -60,8 +60,8 @@ void setup() {
   
   if (EEPROM.read(EEPROM_WDT_DEBUG_LOC))
   {
-    ERROR("Watchdog triggered reset for task: %u", EEPROM.read(EEPROM_WDT_DEBUG_LOC));
-    ERROR("Control Point: %u", EEPROM.read(EEPROM_WDT_DEBUG_LOC + 1));
+    ERROR("Watchdog triggered system reset for task_id: %u (cp: %d)", 
+      EEPROM.read(EEPROM_WDT_DEBUG_LOC), EEPROM.read(EEPROM_WDT_DEBUG_LOC + 1));
     EEPROM.write(EEPROM_WDT_DEBUG_LOC, 0);
     EEPROM.write(EEPROM_WDT_DEBUG_LOC + 1, 0);
   }
@@ -82,7 +82,6 @@ ts.execute();
 
 void serviceFeeds()
 {
-  
   for (int i=0; i < sizeof(feeds)/sizeof(feeds[0]); i++)
   {
      feeds[i].service();
