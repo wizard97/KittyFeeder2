@@ -1,4 +1,3 @@
-#include <Servo.h>
 #include <DS3232RTC.h>
 #include <TimeLib.h>
 #include <EEPROM.h>
@@ -14,7 +13,7 @@
 
 #define SERVO1_PIN 9
 #define SERVO1_OPEN 90
-#define SERVO1_CLOSE 0
+#define SERVO1_CLOSE 90
 
 #define SERVO2_PIN 10
 #define SERVO2_OPEN 0
@@ -46,17 +45,17 @@ char error_buf[75];
 // Watchdog Timer
 void wdtService(); bool wdtOn(); void wdtOff();
 
+void serviceFeeds();
+
 // Declare all your feed compartments and link them with servos
-Servo sDoor1;
-Servo sDoor2;
+
 FeedCompart feeds[] = {
-  FeedCompart(sDoor1, 3, SERVO1_CLOSE, SERVO1_OPEN),
-  FeedCompart(sDoor2, 3 + sizeof(FeedCompart), SERVO2_CLOSE, SERVO2_OPEN),
+  FeedCompart(SERVO1_PIN, 0, SERVO1_CLOSE, SERVO1_OPEN),
+  //FeedCompart(SERVO2_PIN, sizeof(FeedCompart), SERVO2_CLOSE, SERVO2_OPEN),
   };
 
 
 Scheduler ts;
-
 
 void test() {
   DEBUG("Calling test task at: %u", millis());
@@ -64,7 +63,7 @@ void test() {
 }
 //////// TASKS /////////////
 Task tWatchdog(500, TASK_FOREVER, &wdtService, &ts, false, &wdtOn, &wdtOff);
-Task tTest(TASK_SECOND, TASK_FOREVER, &test, &ts, true);
+Task tServiceFeeds(TASK_IMMEDIATE, TASK_FOREVER, &serviceFeeds, &ts, true);
 
 void setup() {
   Serial.begin(115200);
@@ -85,22 +84,27 @@ void setup() {
     EEPROM.write(EEPROM_WDT_DEBUG_LOC, 0);
     EEPROM.write(EEPROM_WDT_DEBUG_LOC + 1, 0);
   }
-  // Attach Servos
-  sDoor1.attach(SERVO1_PIN);
-  sDoor2.attach(SERVO2_PIN);
-
-  //This is a test
-  feeds[0].getServo().write(20);
   
   delay(2000);
 
-  
   tWatchdog.enableDelayed();
 
 }
 
 void loop() {
 ts.execute();
+}
+
+void serviceFeeds()
+{
+  
+  for (int i=0; i < sizeof(feeds)/sizeof(feeds[0]); i++)
+  {
+     feeds[i].service();
+     DEBUG("%d", feeds[i].getServo().read());
+     delay(1000);
+  }
+  
 }
 
 bool wdtOn() {

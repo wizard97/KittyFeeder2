@@ -5,9 +5,17 @@
 */
 #ifndef FEED_COMPART_H
 #define FEED_COMPART_H
+
 #include "Arduino.h"
 #include "Servo.h"
 #include "TimeLib.h"
+
+
+// ms to open and close door
+#define DOOR_SPEED 5000
+// Mins door should stay open
+#define DOOR_OPEN_TIME 15
+
 
 // Make a struct so we can memcpy it out of EEPROM
 typedef struct EECompartSettings
@@ -15,55 +23,128 @@ typedef struct EECompartSettings
     boolean enabled;
     //Ignore months and year fields
     tmElements_t time;
+    //crc MUST BE LAST ELEMENT IN STRUCT!
     uint32_t crc;
 } FeedCompartSettings;
 
 class FeedCompart
 {
+    typedef enum DoorState
+    {
+        CLOSED,
+        OPENING,
+        OPEN,
+        CLOSING,
+    } DoorState;
+
 private:
     const uint16_t eepromLoc;
     EECompartSettings settings;
-    Servo &doorServo;
+    Servo doorServo;
+    DoorState currDoorState;
+    // Timestamp of state change for door
+    unsigned long msStateChange;
     // Servo open and close positions
     const uint16_t openDeg, closeDeg;
-
     bool loadSettingsFromEE();
     void saveSettingsToEE();
     uint32_t generateCrc();
 
 public:
-    FeedCompart(Servo &doorServo, uint16_t eepromLoc, uint16_t closeDeg, uint16_t openDeg);
+    FeedCompart(int servoPin, uint16_t eepromLoc, uint16_t closeDeg, uint16_t openDeg);
     ~FeedCompart();
     Servo &getServo();
+    void service();
 };
 
-FeedCompart::FeedCompart(Servo &doorServo, uint16_t eepromLoc, uint16_t closeDeg, uint16_t openDeg)
-: doorServo(doorServo), eepromLoc(eepromLoc), openDeg(openDeg), closeDeg(closeDeg)
+FeedCompart::FeedCompart(int servoPin, uint16_t eepromLoc, uint16_t closeDeg, uint16_t openDeg)
+: doorServo(), eepromLoc(eepromLoc),
+openDeg(openDeg), closeDeg(closeDeg)
 {
-    // If loading settings failed...
+    doorServo.attach(servoPin);
+    doorServo.write(closeDeg);
+    currDoorState = CLOSED;
+    msStateChange = 0;
+
+    // If loading settings failed, set to sensible defaults
     if(!loadSettingsFromEE())
     {
-        time_t curr = now();
-        //default to now
-        settings.time.Second = second(curr);
-        settings.time.Minute = minute(curr);
-        settings.time.Hour = hour(curr);
-        settings.time.Wday = weekday(curr);
-        settings.time.Day = day(curr);
-        settings.time.Month = month(curr);
-        settings.time.Year = year(curr);
-
-        settings.crc = generateCrc();
+        //Default to now
+        breakTime(now(), settings.time);
+        settings.enabled = false;
+        saveSettingsToEE();
     }
-    doorServo.write(openDeg);
+
 }
 
 FeedCompart::~FeedCompart()
 {
     doorServo.write(closeDeg);
+    doorServo.detach();
     saveSettingsToEE();
 }
 
+void FeedCompart::service()
+{
+    if (settings.enabled) {
+        tmElements_t to_check = settings.time;
+        time_t curr = now();
+        time_t set;
+        //since we dont care about day month or year
+        to_check.Day = day(curr);
+        to_check.Month = month(curr);
+        to_check.Year = year(curr);
+
+        set = makeTime(to_check);
+
+        // Run the state machine for the door
+        switch(currDoorState)
+        {
+            case CLOSED:
+                if (set >= curr && set < curr + 60*DOOR_OPEN_TIME) {
+                    msStateChange = millis();
+                    currDoorState = OPENING;
+                }
+                break;
+
+            case OPENING:
+                if (doorServo.read() != openDeg) {
+                    doorServo.write(map((long int)(millis - msStateChange), 0,
+                        DOOR_SPEED, closeDeg, openDeg));
+                } else {
+                    msStateChange = millis();
+                    currDoorState = OPEN;
+                }
+                break;
+
+            case OPEN:
+                if (curr >= 60*DOOR_OPEN_TIME) {
+                    msStateChange = millis();
+                    currDoorState = CLOSING;
+                }
+                break;
+
+            case CLOSING:
+                if (doorServo.read() != closeDeg) {
+                    doorServo.write(map((long int)(millis - msStateChange), 0,
+                        DOOR_SPEED, openDeg, closeDeg));
+                } else {
+                    msStateChange = millis();
+                    currDoorState = CLOSED;
+                    // disable feed
+                    settings.enabled = false;
+                    saveSettingsToEE();
+                }
+                break;
+
+            default:
+                msStateChange = millis();
+                currDoorState = CLOSED;
+                break;
+        }
+    }
+
+}
 
 Servo &FeedCompart::getServo()
 {
@@ -72,6 +153,7 @@ Servo &FeedCompart::getServo()
 
 bool FeedCompart::loadSettingsFromEE()
 {
+    // Some crazy pointer casting to perform a memcpy so we can use the EEPROM macro
     for (int i=0; i<sizeof(settings); i++)
     {
         ((unsigned char*)&settings)[i] = EEPROM[eepromLoc + i];
@@ -83,12 +165,14 @@ void FeedCompart::saveSettingsToEE()
 {
     // update crc
     settings.crc = generateCrc();
+    // Some crazy pointer casting to perform a memcpy so we can use the EEPROM macro
     for (int i=0; i<sizeof(settings); i++)
     {
         EEPROM[eepromLoc + i] = ((unsigned char*)&settings)[i];
     }
 }
 
+// Code found on Arduino EEPROM example page
 uint32_t FeedCompart::generateCrc() {
 
   const uint32_t crc_table[16] = {
@@ -99,7 +183,7 @@ uint32_t FeedCompart::generateCrc() {
   };
 
   uint32_t crc = ~0L;
-  for (int index = eepromLoc; index < sizeof(settings); index++) {
+  for (int index = eepromLoc; index < sizeof(settings)-sizeof(settings.crc); index++) {
     crc = crc_table[(crc ^ EEPROM[index]) & 0x0f] ^ (crc >> 4);
     crc = crc_table[(crc ^ (EEPROM[index] >> 4)) & 0x0f] ^ (crc >> 4);
     crc = ~crc;
