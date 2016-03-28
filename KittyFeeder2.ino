@@ -8,6 +8,9 @@
 #include <TaskScheduler.h>
 #include "FeedCompart.h"
 
+char error_buf[ERROR_BUF_SIZE];
+#include "FeederUtils.h"
+
 #define VERSION "v2.0"
 #define RTC_SYNC_INTERVAL 30
 
@@ -21,25 +24,6 @@
 
 // Requires two bytes from this index
 #define EEPROM_WDT_DEBUG_LOC 254
-
-#ifdef NDEBUG
-#define DEBUG(M, ...)
-#define ERROR(M, ...)
-#else
-char error_buf[75];
-#define DEBUG(M, ...) \
-  do { \
-    snprintf(error_buf, sizeof(error_buf), "DEBUG (%s %d %d:%d:%d)(%d): " M, \
-        monthShortStr(month()), day(), hour(), minute(), second(), __LINE__, ##__VA_ARGS__); \
-    Serial.println(error_buf); \
-  } while (0)
-#define ERROR(M, ...) \
-  do { \
-    snprintf(error_buf, sizeof(error_buf), "ERROR (%s %d %d:%d:%d)(%d): " M, \
-        monthShortStr(month()), day(), hour(), minute(), second(), __LINE__, ##__VA_ARGS__); \
-    Serial.println(error_buf); \
-  } while (0)
-#endif
 
 
 // Watchdog Timer
@@ -57,20 +41,17 @@ FeedCompart feeds[] = {
 
 Scheduler ts;
 
-void test() {
-  DEBUG("Calling test task at: %u", millis());
-  
-}
 //////// TASKS /////////////
 Task tWatchdog(500, TASK_FOREVER, &wdtService, &ts, false, &wdtOn, &wdtOff);
 Task tServiceFeeds(TASK_IMMEDIATE, TASK_FOREVER, &serviceFeeds, &ts, true);
 
 void setup() {
   Serial.begin(115200);
-  DEBUG("Welcome to the KittyFeeder " VERSION);
-  
+  setTime(1);
   setSyncProvider(&RTC.get);  // set the external time provider
   setSyncInterval(RTC_SYNC_INTERVAL);
+  
+  DEBUG("Welcome to the KittyFeeder " VERSION);
   
   if (timeStatus() != timeSet) 
      ERROR("Unable to sync with the RTC");
@@ -89,8 +70,8 @@ void setup() {
   {
      feeds[i].begin();
   }
-  delay(2000);
-
+  
+  DEBUG("Startup Complete! Starting Tasks...");
   tWatchdog.enableDelayed();
 
 }
