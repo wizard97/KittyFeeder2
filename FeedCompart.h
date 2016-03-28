@@ -14,9 +14,9 @@
 
 
 // ms to open and close door
-#define DOOR_SPEED 5000
+#define DOOR_SPEED 3000
 // Mins door should stay open
-#define DOOR_OPEN_TIME 15
+#define DOOR_OPEN_TIME 3
 
 
 // Make a struct so we can memcpy it out of EEPROM
@@ -63,6 +63,8 @@ public:
     FeedCompart(uint16_t servoPin, uint16_t eepromLoc, uint16_t closeDeg, uint16_t openDeg);
     ~FeedCompart();
     Servo &getServo();
+    bool isEnabled();
+    void enable();
     void service();
     void begin();
 };
@@ -132,9 +134,10 @@ void FeedCompart::service()
         switch(currDoorState)
         {
             case CLOSED:
-                if (set >= curr && set < curr + 60*DOOR_OPEN_TIME) {
+                if (curr >= set && curr < set + 60*DOOR_OPEN_TIME) {
                     msStateChange = millis();
                     currDoorState = OPENING;
+                    DEBUG("Feeder %d opening!", id);
                 }
                 break;
 
@@ -149,9 +152,10 @@ void FeedCompart::service()
                 break;
 
             case OPEN:
-                if (curr >= 60*DOOR_OPEN_TIME) {
+                if (curr >= set + 60*DOOR_OPEN_TIME) {
                     msStateChange = millis();
                     currDoorState = CLOSING;
+                    DEBUG("Feeder %d closing!", id);
                 }
                 break;
 
@@ -179,9 +183,20 @@ void FeedCompart::service()
 
 }
 
+void FeedCompart::enable()
+{
+    settings.enabled = true;
+    saveSettingsToEE();
+}
+
 Servo &FeedCompart::getServo()
 {
     return doorServo;
+}
+
+bool FeedCompart::isEnabled()
+{
+    return settings.enabled;
 }
 
 bool FeedCompart::loadSettingsFromEE()

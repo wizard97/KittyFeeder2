@@ -58,10 +58,10 @@ void setup() {
   else
      DEBUG("RTC has set the system time");      
   
-  if (EEPROM.read(0))
+  if (EEPROM.read(EEPROM_WDT_DEBUG_LOC))
   {
-    ERROR("Watchdog triggered reset for task: %u", EEPROM.read(0));
-    ERROR("Control Point: %u", EEPROM.read(1));
+    ERROR("Watchdog triggered reset for task: %u", EEPROM.read(EEPROM_WDT_DEBUG_LOC));
+    ERROR("Control Point: %u", EEPROM.read(EEPROM_WDT_DEBUG_LOC + 1));
     EEPROM.write(EEPROM_WDT_DEBUG_LOC, 0);
     EEPROM.write(EEPROM_WDT_DEBUG_LOC + 1, 0);
   }
@@ -73,7 +73,7 @@ void setup() {
   
   DEBUG("Startup Complete! Starting Tasks...");
   tWatchdog.enableDelayed();
-
+  feeds[0].enable();
 }
 
 void loop() {
