@@ -6,7 +6,9 @@
 
 #define _TASK_WDT_IDS
 #include <TaskScheduler.h>
+#include "DHT.h"
 #include "FeedCompart.h"
+#include "ThermoCooler.h"
 
 char error_buf[ERROR_BUF_SIZE];
 #include "FeederUtils.h"
@@ -22,21 +24,31 @@ char error_buf[ERROR_BUF_SIZE];
 #define SERVO2_OPEN 0
 #define SERVO2_CLOSE 90
 
+#define THERMO_COOLER_PIN 5
+
+#define DHTPIN 2
+#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+
+#define EEPROM_FEEDER_SETTING_LOC 50
+#define EEPROM_COOLER_SETTINGS_LOC 20
 // Requires two bytes from this index
-#define EEPROM_WDT_DEBUG_LOC (EEPROM.length()-3)
+#define EEPROM_WDT_DEBUG_LOC (EEPROM.length()-1-2)
 
 
 // Watchdog Timer
 void wdtService(); bool wdtOn(); void wdtOff();
 
 void serviceFeeds();
+void serviceCooler();
+double getTemp();
 
 // Declare all your feed compartments and link them with servos
-
 FeedCompart feeds[] = {
-  FeedCompart(SERVO1_PIN, 0, SERVO1_CLOSE, SERVO1_OPEN),
-  FeedCompart(SERVO2_PIN, sizeof(FeedCompart), SERVO2_CLOSE, SERVO2_OPEN),
+  FeedCompart(SERVO1_PIN, EEPROM_FEEDER_SETTING_LOC, SERVO1_CLOSE, SERVO1_OPEN),
+  FeedCompart(SERVO2_PIN, EEPROM_FEEDER_SETTING_LOC + FEED_COMPART_EE_SIZE, SERVO2_CLOSE, SERVO2_OPEN),
   };
+
+ //ThermoCooler cooler(THERMO_COOLER_PIN, &getTemp, EEPROM_COOLER_SETTINGS_LOC);
 
 
 Scheduler ts;
@@ -44,6 +56,9 @@ Scheduler ts;
 //////// TASKS /////////////
 Task tWatchdog(500, TASK_FOREVER, &wdtService, &ts, false, &wdtOn, &wdtOff);
 Task tServiceFeeds(TASK_IMMEDIATE, TASK_FOREVER, &serviceFeeds, &ts, true);
+Task tServiceCooler(2000, TASK_FOREVER, &serviceCooler, &ts, true);
+
+DHT dht(DHTPIN, DHTTYPE);
 
 void setup() {
   Serial.begin(115200);
@@ -71,7 +86,7 @@ void setup() {
      feeds[i].begin();
   }
   
-  DEBUG("Startup Complete! Starting Tasks...");
+  DEBUG("Startup Complete! Starting Tasks...\n");
   tWatchdog.enableDelayed();
   feeds[0].enable();
 }
@@ -88,6 +103,27 @@ void serviceFeeds()
   }
   
 }
+
+void serviceCooler()
+{
+  DEBUG("System Temp %dF", (int)round(getTemp()));
+  //cooler.service();
+}
+
+double getTemp()
+{
+  // Read temperature as Fahrenheit (isFahrenheit = true)
+  float f = dht.readTemperature(true);
+
+  // Check if any reads failed and exit early (to try again).
+  if (isnan(f)) {
+    ERROR("Unable to read temperature sensor");
+    return 0.0;
+  }
+  return f;
+  
+}
+
 
 bool wdtOn() {
   

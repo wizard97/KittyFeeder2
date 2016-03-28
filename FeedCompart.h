@@ -18,6 +18,8 @@
 // Mins door should stay open
 #define DOOR_OPEN_TIME 3
 
+#define FEED_COMPART_EE_SIZE sizeof(EECompartSettings)
+
 
 // Make a struct so we can memcpy it out of EEPROM
 typedef struct EECompartSettings
@@ -101,6 +103,7 @@ void FeedCompart::begin()
 
         settings.enabled = false;
         saveSettingsToEE();
+        ERROR("Feed Door %d: EEPROM corrupt, setting alarm time to now.", id);
     }
 
     doorServo.attach(servoPin);
@@ -227,20 +230,8 @@ void FeedCompart::saveSettingsToEE()
 // Code found on Arduino EEPROM example page
 uint32_t FeedCompart::generateCrc() {
 
-  const uint32_t crc_table[16] = {
-    0x00000000, 0x1db71064, 0x3b6e20c8, 0x26d930ac,
-    0x76dc4190, 0x6b6b51f4, 0x4db26158, 0x5005713c,
-    0xedb88320, 0xf00f9344, 0xd6d6a3e8, 0xcb61b38c,
-    0x9b64c2b0, 0x86d3d2d4, 0xa00ae278, 0xbdbdf21c
-  };
-
-  uint32_t crc = ~0L;
-  for (int index = eepromLoc; index < sizeof(settings)-sizeof(settings.crc); index++) {
-    crc = crc_table[(crc ^ EEPROM[index]) & 0x0f] ^ (crc >> 4);
-    crc = crc_table[(crc ^ (EEPROM[index] >> 4)) & 0x0f] ^ (crc >> 4);
-    crc = ~crc;
-  }
-  return crc;
+    // generate crc, ignoring the last crc element in settings struct
+    return EEGenerateCrc(eepromLoc, FEED_COMPART_EE_SIZE-sizeof(settings.crc));
 }
 
 #endif

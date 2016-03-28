@@ -1,7 +1,8 @@
-#include "TimeLib.h"
-
 #ifndef FEEDER_UTILS_H
 #define FEEDER_UTILS_H
+
+#include "TimeLib.h"
+#include "EEPROM.h"
 
 #define ERROR_BUF_SIZE 90
 
@@ -23,5 +24,7 @@ extern char error_buf[ERROR_BUF_SIZE];
     Serial.println(error_buf); \
   } while (0)
 #endif
+
+uint32_t EEGenerateCrc(uint16_t start, uint16_t num_bytes);
 
 #endif
