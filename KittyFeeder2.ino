@@ -13,7 +13,7 @@
 
 #define SERVO1_PIN 9
 #define SERVO1_OPEN 90
-#define SERVO1_CLOSE 90
+#define SERVO1_CLOSE 0
 
 #define SERVO2_PIN 10
 #define SERVO2_OPEN 0
@@ -51,7 +51,7 @@ void serviceFeeds();
 
 FeedCompart feeds[] = {
   FeedCompart(SERVO1_PIN, 0, SERVO1_CLOSE, SERVO1_OPEN),
-  //FeedCompart(SERVO2_PIN, sizeof(FeedCompart), SERVO2_CLOSE, SERVO2_OPEN),
+  FeedCompart(SERVO2_PIN, sizeof(FeedCompart), SERVO2_CLOSE, SERVO2_OPEN),
   };
 
 
@@ -84,7 +84,11 @@ void setup() {
     EEPROM.write(EEPROM_WDT_DEBUG_LOC, 0);
     EEPROM.write(EEPROM_WDT_DEBUG_LOC + 1, 0);
   }
-  
+
+  for (int i=0; i < sizeof(feeds)/sizeof(feeds[0]); i++)
+  {
+     feeds[i].begin();
+  }
   delay(2000);
 
   tWatchdog.enableDelayed();
@@ -101,8 +105,6 @@ void serviceFeeds()
   for (int i=0; i < sizeof(feeds)/sizeof(feeds[0]); i++)
   {
      feeds[i].service();
-     DEBUG("%d", feeds[i].getServo().read());
-     delay(1000);
   }
   
 }

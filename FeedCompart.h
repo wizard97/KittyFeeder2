@@ -9,6 +9,7 @@
 #include "Arduino.h"
 #include "Servo.h"
 #include "TimeLib.h"
+#include <EEPROM.h>
 
 
 // ms to open and close door
@@ -41,6 +42,7 @@ private:
     const uint16_t eepromLoc;
     EECompartSettings settings;
     Servo doorServo;
+    const uint16_t servoPin;
     DoorState currDoorState;
     // Timestamp of state change for door
     unsigned long msStateChange;
@@ -51,18 +53,17 @@ private:
     uint32_t generateCrc();
 
 public:
-    FeedCompart(int servoPin, uint16_t eepromLoc, uint16_t closeDeg, uint16_t openDeg);
+    FeedCompart(uint16_t servoPin, uint16_t eepromLoc, uint16_t closeDeg, uint16_t openDeg);
     ~FeedCompart();
     Servo &getServo();
     void service();
+    void begin();
 };
 
-FeedCompart::FeedCompart(int servoPin, uint16_t eepromLoc, uint16_t closeDeg, uint16_t openDeg)
-: doorServo(), eepromLoc(eepromLoc),
+FeedCompart::FeedCompart(uint16_t servoPin, uint16_t eepromLoc, uint16_t closeDeg, uint16_t openDeg)
+: doorServo(), servoPin(servoPin), eepromLoc(eepromLoc),
 openDeg(openDeg), closeDeg(closeDeg)
 {
-    doorServo.attach(servoPin);
-    doorServo.write(closeDeg);
     currDoorState = CLOSED;
     msStateChange = 0;
 
@@ -82,6 +83,13 @@ FeedCompart::~FeedCompart()
     doorServo.write(closeDeg);
     doorServo.detach();
     saveSettingsToEE();
+}
+
+
+void FeedCompart::begin()
+{
+    doorServo.attach(servoPin);
+    doorServo.write(closeDeg);
 }
 
 void FeedCompart::service()
