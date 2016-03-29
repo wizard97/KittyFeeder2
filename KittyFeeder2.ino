@@ -89,6 +89,7 @@ void setup() {
   cooler.begin();
   
   tWatchdog.enableDelayed();
+  cooler.enable();
   feeds[0].enable();
 }
 

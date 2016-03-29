@@ -33,7 +33,7 @@ void ThermoCooler::service()
         digitalWrite(pin, 0);
     } else if (current > settings.set_temp + TC_PWM_DELTA_DEG) {
         // It is over TC_PWM_DELTA_DEG away from set temp
-        digitalWrite(pin, 0);
+        digitalWrite(pin, 1);
     } else if (current > settings.set_temp - TC_PWM_DELTA_DEG) {
         // It is within TC_PWM_DELTA_DEG, so start using pwm
         double pwm = 128 + (127*delta)/TC_PWM_DELTA_DEG;
@@ -71,7 +71,7 @@ void ThermoCooler::saveSettingsToEE()
 uint32_t ThermoCooler::generateCrc()
 {
     // generate crc, ignoring the last crc element in settings struct
-    return EEGenerateCrc(eepromLoc, sizeof(THERMO_COOLER_EE_SIZE)-sizeof(settings.crc));
+    return EEGenerateCrc(eepromLoc, THERMO_COOLER_EE_SIZE-sizeof(settings.crc));
 }
 
 double ThermoCooler::getTemp()
