@@ -103,22 +103,22 @@ void FeedCompart::begin()
 
         settings.enabled = false;
         saveSettingsToEE();
-        STOREM(LOG_ERROR,"Feed Door %d: EEPROM corrupt, setting alarm time to now.", id);
-        PRINTM();
+        LOG(LOG_ERROR,"Feed Door %d: EEPROM corrupt, setting alarm time to now.", id);
+
     }
 
     doorServo.attach(servoPin);
     doorServo.write(closeDeg);
-    STOREM(LOG_DEBUG, "Feed Door %d: Servo attached to pin %d", id, servoPin);
-    PRINTM();
+    LOG(LOG_DEBUG, "Feed Door %d: Servo attached to pin %d", id, servoPin);
+
     // No idea why I'm having to do this...
     char tmp[5];
     strcpy(tmp, dayShortStr(settings.Wday));
 
-    STOREM(LOG_DEBUG, "Feed Door %d: %s with set time: %s %d:%d",
+    LOG(LOG_DEBUG, "Feed Door %d: %s with set time: %s %d:%d",
         id, settings.enabled ? "ENABLED" : "DISABLED", tmp,
         settings.Hour, settings.Minute);
-    PRINTM();
+
 }
 
 void FeedCompart::service()
@@ -143,8 +143,8 @@ void FeedCompart::service()
                 if (curr >= set && curr < set + 60*DOOR_OPEN_TIME) {
                     msStateChange = millis();
                     currDoorState = OPENING;
-                    STOREM(LOG_DEBUG, "Feeder %d opening!", id);
-                    PRINTM();
+                    LOG(LOG_DEBUG, "Feeder %d opening!", id);
+
                 }
                 break;
 
@@ -162,8 +162,8 @@ void FeedCompart::service()
                 if (curr >= set + 60*DOOR_OPEN_TIME) {
                     msStateChange = millis();
                     currDoorState = CLOSING;
-                    STOREM(LOG_DEBUG, "Feeder %d closing!", id);
-                    PRINTM();
+                    LOG(LOG_DEBUG, "Feeder %d closing!", id);
+
                 }
                 break;
 

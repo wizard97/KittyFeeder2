@@ -17,11 +17,11 @@ void ThermoCooler::begin()
         settings.set_temp = 40;
         generateCrc();
         saveSettingsToEE();
-        STOREM(LOG_ERROR, "Cooler: Failed to load set temp from EEPROM");
+        LOG(LOG_ERROR, "Cooler: Failed to load set temp from EEPROM");
     } else {
-        STOREM(LOG_DEBUG, "Cooler: Loaded set temp of %dF from EEPROM", settings.set_temp);
+        LOG(LOG_DEBUG, "Cooler: Loaded set temp of %dF from EEPROM", settings.set_temp);
     }
-    PRINTM();
+
         service();
 }
 

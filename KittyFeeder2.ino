@@ -67,23 +67,23 @@ void setup() {
   setSyncProvider(&RTC.get);  // set the external time provider
   setSyncInterval(RTC_SYNC_INTERVAL);
 
-  STOREM(LOG_DEBUG, "Welcome to the KittyFeeder " VERSION);
-  PRINTM();
+  LOG(LOG_DEBUG, "Welcome to the KittyFeeder " VERSION);
+
 
   if (timeStatus() != timeSet)
-     STOREM(LOG_ERROR, "Unable to sync with the RTC");
+     LOG(LOG_ERROR, "Unable to sync with the RTC");
   else
-     STOREM(LOG_DEBUG, "RTC has set the system time");
+     LOG(LOG_DEBUG, "RTC has set the system time");
 
-  PRINTM();
+
 
   if (EEPROM.read(EEPROM_WDT_DEBUG_LOC))
   {
-    STOREM(LOG_ERROR, "Watchdog triggered system reset for task_id: %u (cp: %d)",
+    LOG(LOG_ERROR, "Watchdog triggered system reset for task_id: %u (cp: %d)",
         EEPROM.read(EEPROM_WDT_DEBUG_LOC), EEPROM.read(EEPROM_WDT_DEBUG_LOC + 1));
     EEPROM.write(EEPROM_WDT_DEBUG_LOC, 0);
     EEPROM.write(EEPROM_WDT_DEBUG_LOC + 1, 0);
-    PRINTM();
+
   }
 
   // Begin KittyFeeder objects
@@ -93,6 +93,7 @@ void setup() {
   }
   cooler.begin();
 
+  LOG(LOG_DEBUG, "Startup complete! Starting tasks....\n");
   tWatchdog.enableDelayed();
   cooler.enable();
   cooler.setTemp(72);
@@ -115,8 +116,8 @@ void serviceFeeds()
 void serviceCooler()
 {
   cooler.service();
-  STOREM(LOG_DEBUG, "System Temp %dF (%d%%)", (int)round(cooler.getTemp()), cooler.getPwmPercent());
-  PRINTM();
+  LOG(LOG_DEBUG, "System Temp %dF (%d%%)", (int)round(cooler.getTemp()), cooler.getPwmPercent());
+
 }
 
 double getTemp()
@@ -126,8 +127,8 @@ double getTemp()
 
   // Check if any reads failed and exit early (to try again).
   if (isnan(f)) {
-    STOREM(LOG_ERROR, "Unable to read temperature sensor");
-    PRINTM();
+    LOG(LOG_ERROR, "Unable to read temperature sensor");
+
     return 0.0;
   }
   return f;

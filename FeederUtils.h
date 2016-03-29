@@ -16,21 +16,20 @@
 
 
 #ifdef NDEBUG
-#define STOREM(T, M, ...)
-#define PRINTM()
+#define LOG(T, M, ...)
+
 #else
 extern char err_buf[ERROR_BUF_SIZE];
 extern uint16_t err_remain;
 
-#define STOREM(T, M, ...) \
+#define LOG(T, M, ...) \
     do { \
         err_remain = createDebugString(err_buf, sizeof(err_buf), __LINE__, T); \
         snprintf_P(err_buf + err_remain, MAX(0, sizeof(err_buf) - err_remain), \
         PSTR(M), ##__VA_ARGS__); \
+        Serial.println(err_buf); \
     } while (0)
 
-
-#define PRINTM() Serial.println(err_buf)
 
 #endif
 
