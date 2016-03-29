@@ -33,6 +33,8 @@ public:
     void disable();
     void enable();
     void begin();
+    void setTemp(int temp);
+    uint16_t getPwmPercent();
 
 private:
     bool enabled;
@@ -41,6 +43,7 @@ private:
     double last_temp;
     const int16_t pin;
     double (*gettemp)();
+    uint16_t pwmPercent;
 
     bool loadSettingsFromEE();
     void saveSettingsToEE();

@@ -5,6 +5,7 @@ ThermoCooler::ThermoCooler(int16_t pin, double (*gettemp)(), uint16_t eepromLoc)
 : pin(pin), eepromLoc(eepromLoc), gettemp(gettemp)
 {
     enabled = false;
+    pwmPercent = 0;
     pinMode(pin, OUTPUT);
 
 }
@@ -31,18 +32,28 @@ void ThermoCooler::service()
 
     if (!enabled) {
         digitalWrite(pin, 0);
+        pwmPercent = 0;
     } else if (current > settings.set_temp + TC_PWM_DELTA_DEG) {
         // It is over TC_PWM_DELTA_DEG away from set temp
         digitalWrite(pin, 1);
+        pwmPercent = 100;
     } else if (current > settings.set_temp - TC_PWM_DELTA_DEG) {
         // It is within TC_PWM_DELTA_DEG, so start using pwm
-        double pwm = 128 + (127*delta)/TC_PWM_DELTA_DEG;
+        double pwm = round(128 + (127*delta)/TC_PWM_DELTA_DEG);
+        pwmPercent = (uint16_t)round((pwm*100)/255);
         analogWrite(pin, (int)pwm);
     } else {
         digitalWrite(pin, 0);
+        pwmPercent = 0;
     }
 
     last_temp = current;
+}
+
+void ThermoCooler::setTemp(int temp)
+{
+    settings.set_temp = temp;
+    saveSettingsToEE();
 }
 
 bool ThermoCooler::loadSettingsFromEE()
@@ -72,6 +83,11 @@ uint32_t ThermoCooler::generateCrc()
 {
     // generate crc, ignoring the last crc element in settings struct
     return EEGenerateCrc(eepromLoc, THERMO_COOLER_EE_SIZE-sizeof(settings.crc));
+}
+
+uint16_t ThermoCooler::getPwmPercent()
+{
+    return pwmPercent;
 }
 
 double ThermoCooler::getTemp()

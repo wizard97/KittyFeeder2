@@ -90,6 +90,7 @@ void setup() {
   
   tWatchdog.enableDelayed();
   cooler.enable();
+  cooler.setTemp(72);
   feeds[0].enable();
 }
 
@@ -108,8 +109,8 @@ void serviceFeeds()
 
 void serviceCooler()
 {
-  DEBUG("System Temp %dF", (int)round(getTemp()));
   cooler.service();
+  DEBUG("System Temp %dF (%d%%)", (int)round(cooler.getTemp()), cooler.getPwmPercent());
 }
 
 double getTemp()
