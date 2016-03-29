@@ -17,3 +17,12 @@ uint32_t EEGenerateCrc(uint16_t start, uint16_t num_bytes)
     }
     return crc;
 }
+
+uint16_t createDebugString(char *buf, uint16_t buf_size, uint16_t line, bool error)
+{
+    PROGMEM char *debug = "DEBUG (%s %d %d:%d:%d)(%d): ";
+    PROGMEM char *err = "ERROR (%s %d %d:%d:%d)(%d): ";
+
+    return MIN(buf_size, snprintf(buf, buf_size, error == LOG_DEBUG ? debug : err,
+        monthShortStr(month()), day(), hour(), minute(), second(), line));
+}

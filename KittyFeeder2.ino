@@ -10,7 +10,8 @@
 #include "FeedCompart.h"
 #include "ThermoCooler.h"
 
-char error_buf[ERROR_BUF_SIZE];
+char err_buf[ERROR_BUF_SIZE];
+uint16_t err_remain;
 #include "FeederUtils.h"
 
 #define VERSION "v2.0"
@@ -65,20 +66,24 @@ void setup() {
   setTime(1);
   setSyncProvider(&RTC.get);  // set the external time provider
   setSyncInterval(RTC_SYNC_INTERVAL);
-  
-  DEBUG("Welcome to the KittyFeeder " VERSION);
-  
-  if (timeStatus() != timeSet) 
-     ERROR("Unable to sync with the RTC");
+
+  STOREM(LOG_DEBUG, "Welcome to the KittyFeeder " VERSION);
+  PRINTM();
+
+  if (timeStatus() != timeSet)
+     STOREM(LOG_ERROR, "Unable to sync with the RTC");
   else
-     DEBUG("RTC has set the system time");      
-  
+     STOREM(LOG_DEBUG, "RTC has set the system time");
+
+  PRINTM();
+
   if (EEPROM.read(EEPROM_WDT_DEBUG_LOC))
   {
-    ERROR("Watchdog triggered system reset for task_id: %u (cp: %d)", 
+    STOREM(LOG_ERROR, "Watchdog triggered system reset for task_id: %u (cp: %d)",
         EEPROM.read(EEPROM_WDT_DEBUG_LOC), EEPROM.read(EEPROM_WDT_DEBUG_LOC + 1));
     EEPROM.write(EEPROM_WDT_DEBUG_LOC, 0);
     EEPROM.write(EEPROM_WDT_DEBUG_LOC + 1, 0);
+    PRINTM();
   }
 
   // Begin KittyFeeder objects
@@ -87,7 +92,7 @@ void setup() {
      feeds[i].begin();
   }
   cooler.begin();
-  
+
   tWatchdog.enableDelayed();
   cooler.enable();
   cooler.setTemp(72);
@@ -104,13 +109,14 @@ void serviceFeeds()
   {
      feeds[i].service();
   }
-  
+
 }
 
 void serviceCooler()
 {
   cooler.service();
-  DEBUG("System Temp %dF (%d%%)", (int)round(cooler.getTemp()), cooler.getPwmPercent());
+  STOREM(LOG_DEBUG, "System Temp %dF (%d%%)", (int)round(cooler.getTemp()), cooler.getPwmPercent());
+  PRINTM();
 }
 
 double getTemp()
@@ -120,16 +126,17 @@ double getTemp()
 
   // Check if any reads failed and exit early (to try again).
   if (isnan(f)) {
-    ERROR("Unable to read temperature sensor");
+    STOREM(LOG_ERROR, "Unable to read temperature sensor");
+    PRINTM();
     return 0.0;
   }
   return f;
-  
+
 }
 
 
 bool wdtOn() {
-  
+
   //disable interrupts
   cli();
   //reset watchdog
@@ -146,7 +153,7 @@ bool wdtOn() {
 /**
  * This On Disable method disables WDT
  */
-void wdtOff() 
+void wdtOff()
 {
   wdt_disable();
 }
@@ -154,14 +161,14 @@ void wdtOff()
 /**
  * This is a periodic reset of WDT
  */
-void wdtService() 
+void wdtService()
 {
   wdt_reset();
 }
 
 /**
  * Watchdog timeout ISR
- * 
+ *
  */
 ISR(WDT_vect)
 {
@@ -172,5 +179,3 @@ ISR(WDT_vect)
   EEPROM.write(EEPROM_WDT_DEBUG_LOC+1, (byte)T.getControlPoint());
   digitalWrite(13, LOW);
 }
-
-
