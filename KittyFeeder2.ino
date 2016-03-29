@@ -48,7 +48,7 @@ FeedCompart feeds[] = {
   FeedCompart(SERVO2_PIN, EEPROM_FEEDER_SETTING_LOC + FEED_COMPART_EE_SIZE, SERVO2_CLOSE, SERVO2_OPEN),
   };
 
- //ThermoCooler cooler(THERMO_COOLER_PIN, &getTemp, EEPROM_COOLER_SETTINGS_LOC);
+ThermoCooler cooler(THERMO_COOLER_PIN, &getTemp, EEPROM_COOLER_SETTINGS_LOC);
 
 
 Scheduler ts;
@@ -76,17 +76,18 @@ void setup() {
   if (EEPROM.read(EEPROM_WDT_DEBUG_LOC))
   {
     ERROR("Watchdog triggered system reset for task_id: %u (cp: %d)", 
-      EEPROM.read(EEPROM_WDT_DEBUG_LOC), EEPROM.read(EEPROM_WDT_DEBUG_LOC + 1));
+        EEPROM.read(EEPROM_WDT_DEBUG_LOC), EEPROM.read(EEPROM_WDT_DEBUG_LOC + 1));
     EEPROM.write(EEPROM_WDT_DEBUG_LOC, 0);
     EEPROM.write(EEPROM_WDT_DEBUG_LOC + 1, 0);
   }
 
+  // Begin KittyFeeder objects
   for (int i=0; i < sizeof(feeds)/sizeof(feeds[0]); i++)
   {
      feeds[i].begin();
   }
+  cooler.begin();
   
-  DEBUG("Startup Complete! Starting Tasks...\n");
   tWatchdog.enableDelayed();
   feeds[0].enable();
 }
@@ -107,7 +108,7 @@ void serviceFeeds()
 void serviceCooler()
 {
   DEBUG("System Temp %dF", (int)round(getTemp()));
-  //cooler.service();
+  cooler.service();
 }
 
 double getTemp()

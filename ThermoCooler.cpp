@@ -2,30 +2,31 @@
 
 
 ThermoCooler::ThermoCooler(int16_t pin, double (*gettemp)(), uint16_t eepromLoc)
-: pin(pin), eepromLoc(eepromLoc)
+: pin(pin), eepromLoc(eepromLoc), gettemp(gettemp)
 {
     enabled = false;
-    gettemp = gettemp;
+    pinMode(pin, OUTPUT);
 
+}
+
+void ThermoCooler::begin()
+{
     if (!loadSettingsFromEE()) {
         last_temp = 0;
-        settings.set_temp = 0;
+        settings.set_temp = 40;
         generateCrc();
+        saveSettingsToEE();
         ERROR("Cooler: Failed to load set temp from EEPROM");
     } else {
         DEBUG("Cooler: Loaded set temp of %dF from EEPROM", settings.set_temp);
     }
-
-    pinMode(pin, OUTPUT);
-    service();
-
+        service();
 }
-
 
 void ThermoCooler::service()
 {
     // Simple low pass filter
-    double current = ((*gettemp)() + last_temp)/2.0;
+    double current = ( (*gettemp)() + last_temp)/2.0;
     double delta = current - settings.set_temp;
 
     if (!enabled) {

@@ -32,6 +32,7 @@ public:
     double getTemp();
     void disable();
     void enable();
+    void begin();
 
 private:
     bool enabled;
