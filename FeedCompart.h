@@ -64,11 +64,18 @@ private:
 public:
     FeedCompart(uint16_t servoPin, uint16_t eepromLoc, uint16_t closeDeg, uint16_t openDeg);
     ~FeedCompart();
-    Servo &getServo();
-    bool isEnabled();
+
     void enable();
     void service();
     void begin();
+
+    // getters
+    Servo &getServo();
+    bool isEnabled();
+
+    uint8_t getWeekDay() { return settings.Wday; }
+    uint8_t getHour() { return settings.Hour; }
+    uint8_t getMin() { return settings.Minute; }
 };
 
 //Default it to zero
@@ -223,12 +230,18 @@ bool FeedCompart::loadSettingsFromEE()
 
 void FeedCompart::saveSettingsToEE()
 {
-    // update crc
-    settings.crc = generateCrc();
-    // Some crazy pointer casting to perform a memcpy so we can use the EEPROM macro
-    for (int i=0; i<sizeof(settings); i++)
+    uint32_t tmp = generateCrc();
+
+    // Only update if we have to
+    if (tmp != settings.crc)
     {
-        EEPROM[eepromLoc + i] = ((unsigned char*)&settings)[i];
+        // update crc
+        settings.crc = tmp;
+        // Some crazy pointer casting to perform a memcpy so we can use the EEPROM macro
+        for (int i=0; i<sizeof(settings); i++)
+        {
+            EEPROM[eepromLoc + i] = ((unsigned char*)&settings)[i];
+        }
     }
 }
 

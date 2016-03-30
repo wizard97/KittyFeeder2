@@ -9,6 +9,10 @@
 #include "DHT.h"
 #include "FeedCompart.h"
 #include "ThermoCooler.h"
+#include <MenuSystem.h>
+#include <LiquidCrystal.h>
+
+#define LCD_ROWS 2
 
 char err_buf[ERROR_BUF_SIZE];
 uint16_t err_remain;
@@ -27,7 +31,8 @@ uint16_t err_remain;
 
 #define THERMO_COOLER_PIN 5
 
-#define DHTPIN 2
+// Give it an interrupt pin, if I ever change to an ainterrupt lib
+#define DHTPIN 3
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 
 #define EEPROM_FEEDER_SETTING_LOC 50
@@ -43,6 +48,9 @@ void serviceFeeds();
 void serviceCooler();
 double getTemp();
 
+void displayMenu(Menu *cp_menu);
+void displayFeed1(Menu *cp_menu);
+
 // Declare all your feed compartments and link them with servos
 FeedCompart feeds[] = {
   FeedCompart(SERVO1_PIN, EEPROM_FEEDER_SETTING_LOC, SERVO1_CLOSE, SERVO1_OPEN),
@@ -51,7 +59,19 @@ FeedCompart feeds[] = {
 
 ThermoCooler cooler(THERMO_COOLER_PIN, &getTemp, EEPROM_COOLER_SETTINGS_LOC);
 
+// Menu variables
+MenuSystem ms;
+Menu mm("KittyFeeder v2.0", &displayMenu);
+Menu mm_feeds("Feeders", &displayMenu);
+  Menu feeds_feed1("Left Feeder", &displayFeed1);
+  Menu feeds_feed2("Right Feeder");
 
+Menu mm_temp("Cooler");
+Menu mm_clock("Clock");
+Menu mm_wifi("Wifi");
+
+// Pick pins without any special functionality
+LiquidCrystal lcd(22, 23, 24, 25, 26, 27);
 Scheduler ts;
 
 //////// TASKS /////////////
@@ -92,24 +112,125 @@ void setup() {
      feeds[i].begin();
   }
   cooler.begin();
+  lcd.begin(16, LCD_ROWS);
+
+  LOG(LOG_DEBUG, "Building LCD menu tree...");
+  mm.add_menu(&mm_feeds);
+    mm_feeds.add_menu(&feeds_feed1);
+    mm_feeds.add_menu(&feeds_feed2);
+  mm.add_menu(&mm_temp);
+  mm.add_menu(&mm_clock);
+  mm.add_menu(&mm_wifi);
+
+  ms.set_root_menu(&mm);
+  LOG(LOG_DEBUG, "Done building LCD menu tree");
+  ms.display();
 
   LOG(LOG_DEBUG, "Startup complete! Starting tasks....\n");
   tWatchdog.enableDelayed();
-  cooler.enable();
-  cooler.setTemp(72);
-  feeds[0].enable();
+
+  
+  //teporary crap
+  
+  cooler.setTemp(73);
 }
 
 void loop() {
 ts.execute();
+//tmp
+serialHandler();
 }
+
+
+
+void displayFeed1(Menu *cp_menu)
+{
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(dayShortStr(feeds[0].getWeekDay()));
+}
+
+void displayMenu(Menu *cp_menu) {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+
+  // Display the menu
+  byte prev = cp_menu->get_prev_menu_component_num();
+  byte curr = cp_menu->get_cur_menu_component_num();
+  byte last = cp_menu->get_num_menu_components() - 1;
+
+  byte start, stop;
+  MenuComponent const *mi;
+
+  //first
+  if (!curr) {
+    start = 0;
+    stop = min(last, LCD_ROWS - 1);
+  } else if (last == curr && last == prev) {
+    start = max(0, last + 1 - LCD_ROWS);
+    stop = last;
+  } else if (curr > prev) {
+    //Moved down
+    start = prev;
+    stop = start + LCD_ROWS - 1;
+  } else {
+    // going up
+    start = curr;
+    stop = min(last, start + (LCD_ROWS - 1));
+  }
+
+  // draw
+  for (int i = start, count = 0; i <= stop; i++, count++)
+  {
+    lcd.setCursor(0, count);
+    mi = cp_menu->get_menu_component(i);
+    lcd.print(i + 1);
+    curr == i ? lcd.print( ">") : lcd.print(' ');
+    lcd.print(mi->get_name());
+  }
+
+}
+
+void serialHandler() {
+  char inChar;
+  if ((inChar = Serial.read()) > 0) {
+    switch (inChar) {
+      case 'w': // Previus item
+        ms.prev();
+        ms.display();
+        break;
+      case 's': // Next item
+        ms.next();
+        ms.display();
+        break;
+      case 'a': // Back presed
+        ms.back();
+        ms.display();
+        break;
+      case 'd': // Select presed
+        ms.select(false);
+        ms.display();
+        break;
+      case '?':
+      case 'h': // Display help
+        break;
+      default:
+        break;
+    }
+  }
+}
+
 
 void serviceFeeds()
 {
+  bool enCooler = false;
   for (int i=0; i < sizeof(feeds)/sizeof(feeds[0]); i++)
   {
-     feeds[i].service();
+    feeds[i].service();
+    enCooler |= feeds[i].isEnabled();
   }
+  // Change state of cooler if neccisary
+  if (enCooler != cooler.isEnabled()) enCooler ? cooler.enable() : cooler.disable();
 
 }
 

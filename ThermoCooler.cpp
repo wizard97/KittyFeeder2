@@ -71,12 +71,18 @@ bool ThermoCooler::loadSettingsFromEE()
 
 void ThermoCooler::saveSettingsToEE()
 {
-    settings.crc = generateCrc();
+    uint32_t tmp;
 
-    // Copy everything
-    for (int i=0; i < THERMO_COOLER_EE_SIZE; i++)
+    tmp = generateCrc();
+
+    if (tmp != settings.crc)
     {
-        EEPROM[i] = ((char*)&settings)[i];
+        settings.crc = tmp;
+        // Copy everything
+        for (int i=0; i < THERMO_COOLER_EE_SIZE; i++)
+        {
+            EEPROM[i] = ((char*)&settings)[i];
+        }
     }
 }
 
@@ -98,10 +104,17 @@ double ThermoCooler::getTemp()
 
 void ThermoCooler::disable()
 {
+    if (enabled) LOG(LOG_DEBUG, "Cooler: Disabling Cooler");
     enabled = false;
 }
 
 void ThermoCooler::enable()
 {
+    if (!enabled) LOG(LOG_DEBUG, "Cooler: Enabling Cooler");
     enabled = true;
+}
+
+bool ThermoCooler::isEnabled()
+{
+    return enabled;
 }

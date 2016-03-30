@@ -35,6 +35,7 @@ public:
     void begin();
     void setTemp(int temp);
     uint16_t getPwmPercent();
+    bool isEnabled();
 
 private:
     bool enabled;
