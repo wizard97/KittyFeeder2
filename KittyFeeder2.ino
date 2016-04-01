@@ -1,4 +1,4 @@
-#include <DS1307RTC.h>
+#include <DS3232RTC.h> 
 #include <TimeLib.h>
 #include <EEPROM.h>
 #include <avr/wdt.h>
@@ -9,6 +9,7 @@
 #include "DHT.h"
 #include "FeedCompart.h"
 #include "ThermoCooler.h"
+#include "Button.h"
 #include <MenuSystem.h>
 #include <LiquidCrystal.h>
 
@@ -29,7 +30,7 @@ uint16_t err_remain;
 #define SERVO2_OPEN 0
 #define SERVO2_CLOSE 90
 
-#define THERMO_COOLER_PIN 5
+#define THERMO_COOLER_PIN 4
 
 // Give it an interrupt pin, if I ever change to an ainterrupt lib
 #define DHTPIN 3
@@ -41,15 +42,39 @@ uint16_t err_remain;
 #define EEPROM_WDT_DEBUG_LOC (EEPROM.length()-1-2)
 
 
+
+typedef enum InputHandler
+{
+  MenuNavigatorHandler,
+  Feeder1MenuHandler,
+  NullHandler
+} InputHandler;
+
+
 // Watchdog Timer
 void wdtService(); bool wdtOn(); void wdtOff();
 
 void serviceFeeds();
 void serviceCooler();
+void serviceButtons();
 double getTemp();
+void inputHandler();
+
+bool anyBtnWasPressed();
 
 void displayMenu(Menu *cp_menu);
 void displayFeed1(Menu *cp_menu);
+// Current input handler
+InputHandler currHandler;
+//buttons
+Button bRight(A8, true, false, 5);
+Button bUp(A9, true, false, 5);
+Button bDown(A10, true, false, 5);
+Button bLeft(A11, true, false, 5);
+Button bSelect(A12, true, false, 5);
+
+//put them into array to service laver
+Button *const bAll[] = { &bSelect, &bLeft, &bRight, &bUp, &bDown };
 
 // Declare all your feed compartments and link them with servos
 FeedCompart feeds[] = {
@@ -78,6 +103,7 @@ Scheduler ts;
 Task tWatchdog(500, TASK_FOREVER, &wdtService, &ts, false, &wdtOn, &wdtOff);
 Task tServiceFeeds(TASK_IMMEDIATE, TASK_FOREVER, &serviceFeeds, &ts, true);
 Task tServiceCooler(2000, TASK_FOREVER, &serviceCooler, &ts, true);
+Task tServiceInput(TASK_IMMEDIATE, TASK_FOREVER, &inputHandler, &ts, true);
 
 DHT dht(DHTPIN, DHTTYPE);
 
@@ -123,6 +149,9 @@ void setup() {
   mm.add_menu(&mm_wifi);
 
   ms.set_root_menu(&mm);
+
+  // Set input handler
+  currHandler = MenuNavigatorHandler;
   LOG(LOG_DEBUG, "Done building LCD menu tree");
   ms.display();
 
@@ -132,7 +161,7 @@ void setup() {
   
   //teporary crap
   
-  cooler.setTemp(73);
+  cooler.setTemp(30);
 }
 
 void loop() {
@@ -142,12 +171,46 @@ serialHandler();
 }
 
 
+void inputHandler()
+{
+   serviceButtons();
+   // which input handler do we use?
+   switch (currHandler)
+   {
+    case MenuNavigatorHandler:
+      if (bSelect.wasPressed() || bRight.wasPressed()) ms.select(false);
+      else if (bLeft.wasPressed()) ms.back();
+      else if (bUp.wasPressed()) ms.prev();
+      else if (bDown.wasPressed()) ms.next();
+      if (anyBtnWasPressed()) ms.display();
+      break;
+      
+    case Feeder1MenuHandler:
+  
+      break;
+    case NullHandler:
+      break;
+      
+    default:
+      break;
+   }
+}
+
+
 
 void displayFeed1(Menu *cp_menu)
 {
   lcd.clear();
-  lcd.setCursor(0, 0);
+  lcd.setCursor(2, 0);
+  lcd.print("Left Feeder");
+  lcd.setCursor(0, 1);
+  lcd.print('>');
+  lcd.print(feeds[0].isEnabled() ? "On  " : "Off ");
   lcd.print(dayShortStr(feeds[0].getWeekDay()));
+  lcd.print(' ');
+  lcd.print(feeds[0].getHour());
+  lcd.print(":");
+  lcd.print(feeds[0].getMin());
 }
 
 void displayMenu(Menu *cp_menu) {
@@ -218,6 +281,31 @@ void serialHandler() {
         break;
     }
   }
+}
+
+void serviceButtons()
+{
+  for (int i=0; i< sizeof(bAll)/sizeof(bAll[0]); i++)
+  {
+    // Some weird reason where they are Null
+    if(bAll[i]) bAll[i]->read(); 
+  }
+  char *str = "button pressed";
+  if (bSelect.wasPressed()) LOG(LOG_DEBUG, "Select %s", str);
+  if (bRight.wasPressed()) LOG(LOG_DEBUG, "Right %s", str);
+  if (bLeft.wasPressed()) LOG(LOG_DEBUG, "Left %s", str);
+  if (bUp.wasPressed()) LOG(LOG_DEBUG, "Up %s", str);
+  if (bDown.wasPressed()) LOG(LOG_DEBUG, "Down %s", str);
+}
+
+bool anyBtnWasPressed()
+{
+  for (int i=0; i< sizeof(bAll)/sizeof(bAll[0]); i++)
+  {
+    // Some weird reason where they are Null
+    if(bAll[i]->wasPressed()) return true;
+  }
+  return false;
 }
 
 
