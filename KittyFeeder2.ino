@@ -36,6 +36,14 @@ uint16_t err_remain;
 #define DHTPIN 3
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 
+//define buttons
+#define BTN_DEBOUNCE_TIME 5
+#define BTN_PIN_RIGHT A8
+#define BTN_PIN_UP A9
+#define BTN_PIN_DOWN A10
+#define BTN_PIN_LEFT A11
+#define BTN_PIN_SELECT A12
+
 #define EEPROM_FEEDER_SETTING_LOC 50
 #define EEPROM_COOLER_SETTINGS_LOC 20
 // Requires two bytes from this index
@@ -67,11 +75,11 @@ void displayFeed1(Menu *cp_menu);
 // Current input handler
 InputHandler currHandler;
 //buttons
-Button bRight(A8, true, false, 5);
-Button bUp(A9, true, false, 5);
-Button bDown(A10, true, false, 5);
-Button bLeft(A11, true, false, 5);
-Button bSelect(A12, true, false, 5);
+Button bRight(BTN_PIN_RIGHT, true, false, BTN_DEBOUNCE_TIME);
+Button bUp(BTN_PIN_UP, true, false, BTN_DEBOUNCE_TIME);
+Button bDown(BTN_PIN_DOWN, true, false, BTN_DEBOUNCE_TIME);
+Button bLeft(BTN_PIN_LEFT, true, false, BTN_DEBOUNCE_TIME);
+Button bSelect(BTN_PIN_SELECT, true, false, BTN_DEBOUNCE_TIME);
 
 //put them into array to service laver
 Button *const bAll[] = { &bSelect, &bLeft, &bRight, &bUp, &bDown };
