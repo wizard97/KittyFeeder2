@@ -132,10 +132,10 @@ void feederMenuHandler(const unsigned char index)
     } else if (stor->curr_loc == 2) {
         //Mofifying Hours
         tmp = feeds[index].getHour();
-        if (bUp.isPressed()) {
+        if (bUp.wasPressed()) {
             tmp = (tmp == 23) ? tmp=0 : (tmp+1);
             feeds[index].setHour(tmp);
-        } else if (bDown.isPressed()) {
+        } else if (bDown.wasPressed()) {
             tmp = (tmp==0) ? tmp=23 : (tmp-1);
             feeds[index].setHour(tmp);
         }
@@ -147,7 +147,7 @@ void feederMenuHandler(const unsigned char index)
             tmp = (tmp == 59) ? tmp=0 : (tmp+1);
             feeds[index].setMin(tmp);
         } else if (bDown.wasPressed()) {
-            tmp = (tmp==0) ? tmp=23 : (tmp-1);
+            tmp = (tmp==0) ? tmp=59 : (tmp-1);
             feeds[index].setMin(tmp);
         }
 
