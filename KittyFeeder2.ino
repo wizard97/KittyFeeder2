@@ -12,44 +12,19 @@
 #include "InputHandler.h"
 #include "Button.h"
 #include <MenuSystem.h>
+#include "StorageMenu.h"
 #include <LiquidCrystal.h>
-
-#define LCD_ROWS 2
 
 char err_buf[ERROR_BUF_SIZE];
 uint16_t err_remain;
 #include "FeederUtils.h"
 
-#define VERSION "v2.0"
-#define RTC_SYNC_INTERVAL 30
+///// ALL THE DEVICE CONFIGS COME FROM HERE
+#include "FeederConfig.h"
+#define ARROW_CHAR ((uint8_t)0)
 
-#define SERVO1_PIN 9
-#define SERVO1_OPEN 90
-#define SERVO1_CLOSE 0
-
-#define SERVO2_PIN 10
-#define SERVO2_OPEN 0
-#define SERVO2_CLOSE 90
-
-#define THERMO_COOLER_PIN 4
-
-// Give it an interrupt pin, if I ever change to an ainterrupt lib
-#define DHTPIN 3
-#define DHTTYPE DHT11   // DHT 22  (AM2302), AM2321
-
-//define buttons
-#define BTN_DEBOUNCE_TIME 5
-#define BTN_PIN_RIGHT A8
-#define BTN_PIN_UP A9
-#define BTN_PIN_DOWN A10
-#define BTN_PIN_LEFT A11
-#define BTN_PIN_SELECT A12
-
-#define EEPROM_FEEDER_SETTING_LOC 0
-#define EEPROM_COOLER_SETTINGS_LOC (EEPROM_FEEDER_SETTING_LOC + 2*FEED_COMPART_EE_SIZE)
-// Requires two bytes from this index
-#define EEPROM_WDT_DEBUG_LOC (EEPROM.length()-1-2)
-
+// Locations for the arrows on the feed menus
+const uint8_t feedMenuArrowLocs[] = {0, 4, 8, 11};
 
 // Watchdog Timer
 void wdtService(); bool wdtOn(); void wdtOff();
@@ -64,8 +39,8 @@ bool anyBtnWasPressed();
 void displayMenu(Menu *cp_menu);
 void displayFeed1(Menu *cp_menu);
 void displayFeed2(Menu *cp_menu);
-// Helper function
-void displayFeed(const uint8_t index);
+  // Helper function
+  void displayFeed(const uint8_t index, StorageMenu *cp_menu);
 
 // Current input handler
 InputHandler currHandler;
@@ -91,7 +66,15 @@ ThermoCooler cooler(THERMO_COOLER_PIN, &getTemp, EEPROM_COOLER_SETTINGS_LOC);
 MenuSystem ms;
 Menu mm("KittyFeeder v2.0", &displayMenu);
 Menu mm_feeds("Feeders", &displayMenu);
-  Menu feeds_feed1("Left Feeder", &displayFeed1);
+  // Menu storage struct to track state
+  FeedMenuStorage fm1 = {.arrow_locs = feedMenuArrowLocs, 
+          .num_locs = sizeof(feedMenuArrowLocs)/sizeof(feedMenuArrowLocs[0]),
+          .curr_loc = 0 },
+          fm2 = {.arrow_locs = feedMenuArrowLocs, 
+          .num_locs = sizeof(feedMenuArrowLocs)/sizeof(feedMenuArrowLocs[0]),
+          .curr_loc = 0 };
+          
+  StorageMenu feeds_feed1("Left Feeder", &fm1, sizeof(fm1), &displayFeed1);
   Menu feeds_feed2("Right Feeder", &displayFeed2);
 
 Menu mm_temp("Cooler");
@@ -138,6 +121,7 @@ void setup() {
      feeds[i].begin();
   }
   cooler.begin();
+  lcd.createChar(ARROW_CHAR, arrowChar);
   lcd.begin(16, LCD_ROWS);
 
   LOG(LOG_DEBUG, "Building LCD menu tree...");
@@ -170,20 +154,21 @@ serialHandler();
 void displayFeed1(Menu *cp_menu)
 {
   currHandler = Feeder1MenuHandler;
-  displayFeed(0);
+  displayFeed(0, (StorageMenu *)cp_menu);
 }
 
 void displayFeed2(Menu *cp_menu)
 {
   currHandler = Feeder2MenuHandler;
-  displayFeed(1);
+  displayFeed(1, (StorageMenu *)cp_menu);
   
 }
 
-void displayFeed(const uint8_t index)
+void displayFeed(const uint8_t index, StorageMenu *cp_menu)
 {
   FeedCompart curr = feeds[index];
   currHandler = (index) ? Feeder2MenuHandler : Feeder1MenuHandler;
+  FeedMenuStorage *stor = (FeedMenuStorage *)cp_menu->getStorage();
   
   lcd.clear();
   lcd.setCursor(2, 0);
@@ -191,13 +176,18 @@ void displayFeed(const uint8_t index)
   lcd.print(index ? "Right" : "Left");
   lcd.print(" Feeder");
   lcd.setCursor(0, 1);
-  lcd.print('>');
-  lcd.print(curr.isEnabled() ? "On  " : "Off ");
+  lcd.print(curr.isEnabled() ? " On  " : " Off ");
   lcd.print(dayShortStr(curr.getWeekDay()));
   lcd.print(' ');
+  if (curr.getMin() < 10) lcd.print(0);
   lcd.print(curr.getHour());
   lcd.print(":");
+  if (curr.getMin() < 10) lcd.print(0);
   lcd.print(curr.getMin());
+
+  // Print arrow
+  lcd.setCursor(stor->arrow_locs[stor->curr_loc], 1);
+  lcd.write(ARROW_CHAR);
 }
 
 void displayMenu(Menu *cp_menu) {
@@ -236,7 +226,7 @@ void displayMenu(Menu *cp_menu) {
     lcd.setCursor(0, count);
     mi = cp_menu->get_menu_component(i);
     lcd.print(i + 1);
-    curr == i ? lcd.print( ">") : lcd.print(' ');
+    curr == i ? lcd.write(ARROW_CHAR) : lcd.write(' ');
     lcd.print(mi->get_name());
   }
 

@@ -4,6 +4,8 @@
 #include "Arduino.h"
 #include "Button.h"
 #include "MenuSystem.h"
+#include "StorageMenu.h"
+#include "FeederUtils.h"
 
 typedef enum InputHandler
 {
@@ -70,18 +72,71 @@ void menuNavigatorHandler()
 // Index in feeds array of current item
 void feederMenuHandler(const unsigned char index)
 {
-    uint8_t wday;
-    if (bLeft.wasPressed())
+    StorageMenu *sm= (StorageMenu *)ms.get_current_menu();
+    FeedMenuStorage *stor = (FeedMenuStorage *)sm->getStorage();
+    uint8_t tmp = 0;
+
+
+    // Leaving menu
+    if (bSelect.wasPressed() || bRight.wasPressed())
     {
-        feeds[index].saveSettingsToEE();
-        ms.back();
+        if (stor->curr_loc < 3) {
+            stor->curr_loc++;
+        } else {
+            stor->curr_loc = 0;
+            feeds[index].saveSettingsToEE();
+            ms.back();
+            return;
+        }
+    } else if (bLeft.wasPressed()) {
+        if (stor->curr_loc > 0) {
+            stor->curr_loc--;
+        } else {
+            stor->curr_loc = 0;
+            feeds[index].saveSettingsToEE();
+            ms.back();
+            return;
+        }
     }
 
-    // Weekday selector
-    wday = feeds[index].getWeekDay();
-    if (bUp.wasPressed())  wday = (wday == 7) ? wday=1 : (wday+1);
-    else if (bDown.wasPressed()) wday = (wday==1) ? wday=7 : (wday-1);
-    feeds[index].setWeekDay(wday);
+    // Modifying dates
+    if (stor->curr_loc == 0 && (bUp.wasPressed() || bDown.wasPressed())) {
+        feeds[index].isEnabled() ? feeds[index].disable() : feeds[index].enable();
+
+    } else if (stor->curr_loc == 1) {
+        // Weekday selector
+        tmp = feeds[index].getWeekDay();
+        if (bUp.wasPressed()) {
+            tmp = (tmp == 7) ? tmp=1 : (tmp+1);
+            feeds[index].setWeekDay(tmp);
+        } else if (bDown.wasPressed()) {
+            tmp = (tmp==1) ? tmp=7 : (tmp-1);
+            feeds[index].setWeekDay(tmp);
+        }
+
+    } else if (stor->curr_loc == 2) {
+        //Mofifying Hours
+        tmp = feeds[index].getHour();
+        if (bUp.wasPressed()) {
+            tmp = (tmp == 23) ? tmp=0 : (tmp+1);
+            feeds[index].setHour(tmp);
+        } else if (bDown.wasPressed()) {
+            tmp = (tmp==0) ? tmp=23 : (tmp-1);
+            feeds[index].setHour(tmp);
+        }
+
+    } else if (stor->curr_loc == 3) {
+        //Mofifying Mins
+        tmp = feeds[index].getMin();
+        if (bUp.wasPressed()) {
+            tmp = (tmp == 59) ? tmp=0 : (tmp+1);
+            feeds[index].setMin(tmp);
+        } else if (bDown.wasPressed()) {
+            tmp = (tmp==0) ? tmp=23 : (tmp-1);
+            feeds[index].setMin(tmp);
+        }
+
+    }
 
 }
 

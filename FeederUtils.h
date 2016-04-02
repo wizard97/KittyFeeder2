@@ -33,6 +33,14 @@ extern uint16_t err_remain;
 
 #endif
 
+
+typedef struct FeedMenuStorage
+{
+  const uint8_t *arrow_locs;
+  uint8_t num_locs;
+  uint8_t curr_loc;
+} FeedMenuStorage;
+
 uint32_t EEGenerateCrc(uint16_t start, uint16_t num_bytes);
 uint16_t createDebugString(char *buf, uint16_t buf_size, uint16_t line, bool error);
 #endif

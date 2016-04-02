@@ -65,6 +65,7 @@ public:
     ~FeedCompart();
 
     void enable();
+    void disable();
     void service();
     void begin();
 
@@ -208,6 +209,11 @@ void FeedCompart::enable()
     settings.enabled = true;
 }
 
+void FeedCompart::disable()
+{
+    settings.enabled = false;
+}
+
 Servo &FeedCompart::getServo()
 {
     return doorServo;
@@ -251,7 +257,7 @@ void FeedCompart::saveSettingsToEE()
 uint32_t FeedCompart::generateCrc() {
     //TODO MAKE THIS STUPID THING WORK!!!
     return 0;
-    
+
     // generate crc, ignoring the last crc element in settings struct
     return EEGenerateCrc(eepromLoc, FEED_COMPART_EE_SIZE-sizeof(settings.crc));
 }
