@@ -9,6 +9,7 @@
 #include "DHT.h"
 #include "FeedCompart.h"
 #include "ThermoCooler.h"
+#include "InputHandler.h"
 #include "Button.h"
 #include <MenuSystem.h>
 #include <LiquidCrystal.h>
@@ -34,7 +35,7 @@ uint16_t err_remain;
 
 // Give it an interrupt pin, if I ever change to an ainterrupt lib
 #define DHTPIN 3
-#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+#define DHTTYPE DHT11   // DHT 22  (AM2302), AM2321
 
 //define buttons
 #define BTN_DEBOUNCE_TIME 5
@@ -44,19 +45,10 @@ uint16_t err_remain;
 #define BTN_PIN_LEFT A11
 #define BTN_PIN_SELECT A12
 
-#define EEPROM_FEEDER_SETTING_LOC 50
-#define EEPROM_COOLER_SETTINGS_LOC 20
+#define EEPROM_FEEDER_SETTING_LOC 0
+#define EEPROM_COOLER_SETTINGS_LOC (EEPROM_FEEDER_SETTING_LOC + 2*FEED_COMPART_EE_SIZE)
 // Requires two bytes from this index
 #define EEPROM_WDT_DEBUG_LOC (EEPROM.length()-1-2)
-
-
-
-typedef enum InputHandler
-{
-  MenuNavigatorHandler,
-  Feeder1MenuHandler,
-  NullHandler
-} InputHandler;
 
 
 // Watchdog Timer
@@ -64,7 +56,6 @@ void wdtService(); bool wdtOn(); void wdtOff();
 
 void serviceFeeds();
 void serviceCooler();
-void serviceButtons();
 double getTemp();
 void inputHandler();
 
@@ -72,6 +63,10 @@ bool anyBtnWasPressed();
 
 void displayMenu(Menu *cp_menu);
 void displayFeed1(Menu *cp_menu);
+void displayFeed2(Menu *cp_menu);
+// Helper function
+void displayFeed(const uint8_t index);
+
 // Current input handler
 InputHandler currHandler;
 //buttons
@@ -97,7 +92,7 @@ MenuSystem ms;
 Menu mm("KittyFeeder v2.0", &displayMenu);
 Menu mm_feeds("Feeders", &displayMenu);
   Menu feeds_feed1("Left Feeder", &displayFeed1);
-  Menu feeds_feed2("Right Feeder");
+  Menu feeds_feed2("Right Feeder", &displayFeed2);
 
 Menu mm_temp("Cooler");
 Menu mm_clock("Clock");
@@ -122,14 +117,11 @@ void setup() {
   setSyncInterval(RTC_SYNC_INTERVAL);
 
   LOG(LOG_DEBUG, "Welcome to the KittyFeeder " VERSION);
-
-
+  
   if (timeStatus() != timeSet)
      LOG(LOG_ERROR, "Unable to sync with the RTC");
   else
      LOG(LOG_DEBUG, "RTC has set the system time");
-
-
 
   if (EEPROM.read(EEPROM_WDT_DEBUG_LOC))
   {
@@ -166,10 +158,7 @@ void setup() {
   LOG(LOG_DEBUG, "Startup complete! Starting tasks....\n");
   tWatchdog.enableDelayed();
 
-  
   //teporary crap
-  
-  cooler.setTemp(30);
 }
 
 void loop() {
@@ -178,50 +167,41 @@ ts.execute();
 serialHandler();
 }
 
-
-void inputHandler()
-{
-   serviceButtons();
-   // which input handler do we use?
-   switch (currHandler)
-   {
-    case MenuNavigatorHandler:
-      if (bSelect.wasPressed() || bRight.wasPressed()) ms.select(false);
-      else if (bLeft.wasPressed()) ms.back();
-      else if (bUp.wasPressed()) ms.prev();
-      else if (bDown.wasPressed()) ms.next();
-      if (anyBtnWasPressed()) ms.display();
-      break;
-      
-    case Feeder1MenuHandler:
-  
-      break;
-    case NullHandler:
-      break;
-      
-    default:
-      break;
-   }
-}
-
-
-
 void displayFeed1(Menu *cp_menu)
 {
+  currHandler = Feeder1MenuHandler;
+  displayFeed(0);
+}
+
+void displayFeed2(Menu *cp_menu)
+{
+  currHandler = Feeder2MenuHandler;
+  displayFeed(1);
+  
+}
+
+void displayFeed(const uint8_t index)
+{
+  FeedCompart curr = feeds[index];
+  currHandler = (index) ? Feeder2MenuHandler : Feeder1MenuHandler;
+  
   lcd.clear();
   lcd.setCursor(2, 0);
-  lcd.print("Left Feeder");
+  
+  lcd.print(index ? "Right" : "Left");
+  lcd.print(" Feeder");
   lcd.setCursor(0, 1);
   lcd.print('>');
-  lcd.print(feeds[0].isEnabled() ? "On  " : "Off ");
-  lcd.print(dayShortStr(feeds[0].getWeekDay()));
+  lcd.print(curr.isEnabled() ? "On  " : "Off ");
+  lcd.print(dayShortStr(curr.getWeekDay()));
   lcd.print(' ');
-  lcd.print(feeds[0].getHour());
+  lcd.print(curr.getHour());
   lcd.print(":");
-  lcd.print(feeds[0].getMin());
+  lcd.print(curr.getMin());
 }
 
 void displayMenu(Menu *cp_menu) {
+  currHandler = MenuNavigatorHandler;
   lcd.clear();
   lcd.setCursor(0, 0);
 
@@ -291,21 +271,6 @@ void serialHandler() {
   }
 }
 
-void serviceButtons()
-{
-  for (int i=0; i< sizeof(bAll)/sizeof(bAll[0]); i++)
-  {
-    // Some weird reason where they are Null
-    if(bAll[i]) bAll[i]->read(); 
-  }
-  char *str = "button pressed";
-  if (bSelect.wasPressed()) LOG(LOG_DEBUG, "Select %s", str);
-  if (bRight.wasPressed()) LOG(LOG_DEBUG, "Right %s", str);
-  if (bLeft.wasPressed()) LOG(LOG_DEBUG, "Left %s", str);
-  if (bUp.wasPressed()) LOG(LOG_DEBUG, "Up %s", str);
-  if (bDown.wasPressed()) LOG(LOG_DEBUG, "Down %s", str);
-}
-
 bool anyBtnWasPressed()
 {
   for (int i=0; i< sizeof(bAll)/sizeof(bAll[0]); i++)
@@ -316,6 +281,20 @@ bool anyBtnWasPressed()
   return false;
 }
 
+void serviceButtons()
+{
+  for (int i=0; i< sizeof(bAll)/sizeof(bAll[0]); i++)
+  {
+    // Some weird reason where they are Null
+    if(bAll[i]) bAll[i]->read();
+  }
+  const char *str = "button pressed";
+  if (bSelect.wasPressed()) LOG(LOG_DEBUG, "Select %s", str);
+  if (bRight.wasPressed()) LOG(LOG_DEBUG, "Right %s", str);
+  if (bLeft.wasPressed()) LOG(LOG_DEBUG, "Left %s", str);
+  if (bUp.wasPressed()) LOG(LOG_DEBUG, "Up %s", str);
+  if (bDown.wasPressed()) LOG(LOG_DEBUG, "Down %s", str);
+}
 
 void serviceFeeds()
 {

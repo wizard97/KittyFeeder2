@@ -15,7 +15,6 @@ void ThermoCooler::begin()
     if (!loadSettingsFromEE()) {
         last_temp = 0;
         settings.set_temp = 40;
-        generateCrc();
         saveSettingsToEE();
         LOG(LOG_ERROR, "Cooler: Failed to load set temp from EEPROM");
     } else {
@@ -54,7 +53,6 @@ void ThermoCooler::service()
 void ThermoCooler::setTemp(int temp)
 {
     settings.set_temp = temp;
-    saveSettingsToEE();
 }
 
 bool ThermoCooler::loadSettingsFromEE()
@@ -62,7 +60,7 @@ bool ThermoCooler::loadSettingsFromEE()
     // Copy everything
     for (int i=0; i < THERMO_COOLER_EE_SIZE; i++)
     {
-        ((char*)&settings)[i] = EEPROM[i];
+        ((unsigned char*)&settings)[i] = EEPROM[i];
     }
 
     return settings.crc == generateCrc();
@@ -75,19 +73,19 @@ void ThermoCooler::saveSettingsToEE()
 
     tmp = generateCrc();
 
-    if (tmp != settings.crc)
+    settings.crc = tmp;
+    // Copy everything
+    for (int i=0; i < THERMO_COOLER_EE_SIZE; i++)
     {
-        settings.crc = tmp;
-        // Copy everything
-        for (int i=0; i < THERMO_COOLER_EE_SIZE; i++)
-        {
-            EEPROM[i] = ((char*)&settings)[i];
-        }
+        EEPROM[i] = ((char*)&settings)[i];
     }
 }
 
 uint32_t ThermoCooler::generateCrc()
 {
+    //TODO MAKE THIS STUPID THING WORK!!!
+    return 0;
+    
     // generate crc, ignoring the last crc element in settings struct
     return EEGenerateCrc(eepromLoc, THERMO_COOLER_EE_SIZE-sizeof(settings.crc));
 }

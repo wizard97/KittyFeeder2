@@ -36,6 +36,7 @@ public:
     void setTemp(int temp);
     uint16_t getPwmPercent();
     bool isEnabled();
+    void saveSettingsToEE();
 
 private:
     bool enabled;
@@ -47,7 +48,6 @@ private:
     uint16_t pwmPercent;
 
     bool loadSettingsFromEE();
-    void saveSettingsToEE();
     uint32_t generateCrc();
 };
 

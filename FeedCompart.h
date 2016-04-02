@@ -58,7 +58,6 @@ private:
     static uint8_t _id_counter;
 
     bool loadSettingsFromEE();
-    void saveSettingsToEE();
     uint32_t generateCrc();
 
 public:
@@ -76,6 +75,13 @@ public:
     uint8_t getWeekDay() { return settings.Wday; }
     uint8_t getHour() { return settings.Hour; }
     uint8_t getMin() { return settings.Minute; }
+
+    // setters
+    void setWeekDay(uint8_t wday) { settings.Wday = wday; }
+    void setHour(uint8_t hour) { settings.Hour = hour; }
+    void setMin(uint8_t min) { settings.Minute = min; }
+    void saveSettingsToEE();
+
 };
 
 //Default it to zero
@@ -93,7 +99,6 @@ FeedCompart::~FeedCompart()
 {
     doorServo.write(closeDeg);
     doorServo.detach();
-    saveSettingsToEE();
 }
 
 
@@ -201,7 +206,6 @@ void FeedCompart::service()
 void FeedCompart::enable()
 {
     settings.enabled = true;
-    saveSettingsToEE();
 }
 
 Servo &FeedCompart::getServo()
@@ -217,7 +221,7 @@ bool FeedCompart::isEnabled()
 bool FeedCompart::loadSettingsFromEE()
 {
     // Some crazy pointer casting to perform a memcpy so we can use the EEPROM macro
-    for (int i=0; i<sizeof(settings); i++)
+    for (int i=0; i<FEED_COMPART_EE_SIZE; i++)
     {
         ((unsigned char*)&settings)[i] = EEPROM[eepromLoc + i];
     }
@@ -232,22 +236,22 @@ void FeedCompart::saveSettingsToEE()
 {
     uint32_t tmp = generateCrc();
 
-    // Only update if we have to
-    if (tmp != settings.crc)
+    // update crc
+    settings.crc = tmp;
+    // Some crazy pointer casting to perform a memcpy so we can use the EEPROM macro
+    for (int i=0; i<sizeof(settings); i++)
     {
-        // update crc
-        settings.crc = tmp;
-        // Some crazy pointer casting to perform a memcpy so we can use the EEPROM macro
-        for (int i=0; i<sizeof(settings); i++)
-        {
-            EEPROM[eepromLoc + i] = ((unsigned char*)&settings)[i];
-        }
+        EEPROM[eepromLoc + i] = ((unsigned char*)&settings)[i];
     }
+    LOG(LOG_DEBUG, "Feeder settings written to EEPROM");
+
 }
 
 // Code found on Arduino EEPROM example page
 uint32_t FeedCompart::generateCrc() {
-
+    //TODO MAKE THIS STUPID THING WORK!!!
+    return 0;
+    
     // generate crc, ignoring the last crc element in settings struct
     return EEGenerateCrc(eepromLoc, FEED_COMPART_EE_SIZE-sizeof(settings.crc));
 }

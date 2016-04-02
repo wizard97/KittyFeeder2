@@ -2,6 +2,7 @@
 
 uint32_t EEGenerateCrc(uint16_t start, uint16_t num_bytes)
 {
+
     const uint32_t crc_table[16] = {
       0x00000000, 0x1db71064, 0x3b6e20c8, 0x26d930ac,
       0x76dc4190, 0x6b6b51f4, 0x4db26158, 0x5005713c,
@@ -10,7 +11,7 @@ uint32_t EEGenerateCrc(uint16_t start, uint16_t num_bytes)
     };
 
     uint32_t crc = ~0L;
-    for (int index = start; index < num_bytes; index++) {
+    for (int index = start; index < start + num_bytes; index++) {
       crc = crc_table[(crc ^ EEPROM[index]) & 0x0f] ^ (crc >> 4);
       crc = crc_table[(crc ^ (EEPROM[index] >> 4)) & 0x0f] ^ (crc >> 4);
       crc = ~crc;
