@@ -27,8 +27,12 @@ byte arrowChar[8] = {
 #define SERVO2_CLOSE 90
 
 #define THERMO_COOLER_PIN 4
+#define MAX_COOLER_SET_TEMP 80
+#define MIN_COOLER_SET_TEMP 35
 
 #define LCD_ROWS 2
+// How many ms to redraw menu automatically if no button pressed
+#define LCD_AUTO_REDRAW 1000
 
 // Give it an interrupt pin, if I ever change to an ainterrupt lib
 #define DHTPIN 3

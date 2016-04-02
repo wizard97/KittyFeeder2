@@ -30,6 +30,7 @@ public:
 
     void service();
     double getTemp();
+    int getSetTemp();
     void disable();
     void enable();
     void begin();

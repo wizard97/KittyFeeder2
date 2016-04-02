@@ -79,13 +79,14 @@ void ThermoCooler::saveSettingsToEE()
     {
         EEPROM[i] = ((char*)&settings)[i];
     }
+    LOG(LOG_DEBUG, "Cooler: Settings saved to EEPROM");
 }
 
 uint32_t ThermoCooler::generateCrc()
 {
     //TODO MAKE THIS STUPID THING WORK!!!
     return 0;
-    
+
     // generate crc, ignoring the last crc element in settings struct
     return EEGenerateCrc(eepromLoc, THERMO_COOLER_EE_SIZE-sizeof(settings.crc));
 }
@@ -99,6 +100,12 @@ double ThermoCooler::getTemp()
 {
     return last_temp;
 }
+
+int ThermoCooler::getSetTemp()
+{
+    return settings.set_temp;
+}
+
 
 void ThermoCooler::disable()
 {

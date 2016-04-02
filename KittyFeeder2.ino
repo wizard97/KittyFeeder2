@@ -31,25 +31,30 @@ void wdtService(); bool wdtOn(); void wdtOff();
 
 void serviceFeeds();
 void serviceCooler();
+void serviceSerial();
 double getTemp();
 void inputHandler();
 
 bool anyBtnWasPressed();
+bool anyBtnIsPressed();
 
 void displayMenu(Menu *cp_menu);
 void displayFeed1(Menu *cp_menu);
 void displayFeed2(Menu *cp_menu);
   // Helper function
   void displayFeed(const uint8_t index, StorageMenu *cp_menu);
+void displayTemp(Menu *cp_menu);
+
+uint8_t calcLcdTitleCenter(const char* str);
 
 // Current input handler
 InputHandler currHandler;
 //buttons
-Button bRight(BTN_PIN_RIGHT, true, false, BTN_DEBOUNCE_TIME);
-Button bUp(BTN_PIN_UP, true, false, BTN_DEBOUNCE_TIME);
-Button bDown(BTN_PIN_DOWN, true, false, BTN_DEBOUNCE_TIME);
-Button bLeft(BTN_PIN_LEFT, true, false, BTN_DEBOUNCE_TIME);
-Button bSelect(BTN_PIN_SELECT, true, false, BTN_DEBOUNCE_TIME);
+Button bRight(BTN_PIN_RIGHT, true, true, BTN_DEBOUNCE_TIME);
+Button bUp(BTN_PIN_UP, true, true, BTN_DEBOUNCE_TIME);
+Button bDown(BTN_PIN_DOWN, true, true, BTN_DEBOUNCE_TIME);
+Button bLeft(BTN_PIN_LEFT, true, true, BTN_DEBOUNCE_TIME);
+Button bSelect(BTN_PIN_SELECT, true, true, BTN_DEBOUNCE_TIME);
 
 //put them into array to service laver
 Button *const bAll[] = { &bSelect, &bLeft, &bRight, &bUp, &bDown };
@@ -75,9 +80,9 @@ Menu mm_feeds("Feeders", &displayMenu);
           .curr_loc = 0 };
           
   StorageMenu feeds_feed1("Left Feeder", &fm1, sizeof(fm1), &displayFeed1);
-  Menu feeds_feed2("Right Feeder", &displayFeed2);
+  StorageMenu feeds_feed2("Right Feeder", &fm2, sizeof(fm2), &displayFeed2);
 
-Menu mm_temp("Cooler");
+Menu mm_temp("Cooler", &displayTemp);
 Menu mm_clock("Clock");
 Menu mm_wifi("Wifi");
 
@@ -90,6 +95,7 @@ Task tWatchdog(500, TASK_FOREVER, &wdtService, &ts, false, &wdtOn, &wdtOff);
 Task tServiceFeeds(TASK_IMMEDIATE, TASK_FOREVER, &serviceFeeds, &ts, true);
 Task tServiceCooler(2000, TASK_FOREVER, &serviceCooler, &ts, true);
 Task tServiceInput(TASK_IMMEDIATE, TASK_FOREVER, &inputHandler, &ts, true);
+Task tServiceSerial(1, TASK_FOREVER, &serviceSerial, &ts, true);
 
 DHT dht(DHTPIN, DHTTYPE);
 
@@ -147,8 +153,6 @@ void setup() {
 
 void loop() {
 ts.execute();
-//tmp
-serialHandler();
 }
 
 void displayFeed1(Menu *cp_menu)
@@ -169,23 +173,26 @@ void displayFeed(const uint8_t index, StorageMenu *cp_menu)
   FeedCompart curr = feeds[index];
   currHandler = (index) ? Feeder2MenuHandler : Feeder1MenuHandler;
   FeedMenuStorage *stor = (FeedMenuStorage *)cp_menu->getStorage();
-  
+  const char lf[] = "Left Feeder";
+  const char rf[] = "Right Feeder";
+  const char *name = index ? rf : lf;
+ 
   lcd.clear();
-  lcd.setCursor(2, 0);
-  
-  lcd.print(index ? "Right" : "Left");
-  lcd.print(" Feeder");
+  lcd.setCursor(calcLcdTitleCenter(name), 0);
+  lcd.print(name);
+    
   lcd.setCursor(0, 1);
   lcd.print(curr.isEnabled() ? " On  " : " Off ");
   lcd.print(dayShortStr(curr.getWeekDay()));
   lcd.print(' ');
-  if (curr.getMin() < 10) lcd.print(0);
+  if (curr.getHour() < 10) lcd.print(0);
   lcd.print(curr.getHour());
   lcd.print(":");
   if (curr.getMin() < 10) lcd.print(0);
   lcd.print(curr.getMin());
 
   // Print arrow
+  LOG(LOG_DEBUG, "%d", stor->arrow_locs[stor->curr_loc]);
   lcd.setCursor(stor->arrow_locs[stor->curr_loc], 1);
   lcd.write(ARROW_CHAR);
 }
@@ -232,7 +239,26 @@ void displayMenu(Menu *cp_menu) {
 
 }
 
-void serialHandler() {
+void displayTemp(Menu *cp_menu)
+{
+  char str[25];
+  currHandler = TemperatureMenuHandler;
+  lcd.clear();
+  snprintf(str, sizeof(str), "%s %d%cF %d%%", cp_menu->get_name(), 
+            (int)round(cooler.getTemp()), 0xDF, cooler.getPwmPercent());
+  lcd.setCursor(calcLcdTitleCenter(str), 0);
+  lcd.print(str);
+
+
+  snprintf(str, sizeof(str), "%d%cF", cooler.getSetTemp(), 0xDF);
+  lcd.setCursor(calcLcdTitleCenter(str),1);
+  lcd.print(str);
+  lcd.setCursor(calcLcdTitleCenter(str)-1,1);
+   lcd.write(ARROW_CHAR);
+ 
+}
+
+void serviceSerial() {
   char inChar;
   if ((inChar = Serial.read()) > 0) {
     switch (inChar) {
@@ -267,6 +293,16 @@ bool anyBtnWasPressed()
   {
     // Some weird reason where they are Null
     if(bAll[i]->wasPressed()) return true;
+  }
+  return false;
+}
+
+bool anyBtnIsPressed()
+{
+  for (int i=0; i< sizeof(bAll)/sizeof(bAll[0]); i++)
+  {
+    // Some weird reason where they are Null
+    if(bAll[i]->isPressed()) return true;
   }
   return false;
 }
@@ -319,6 +355,13 @@ double getTemp()
   }
   return f;
 
+}
+
+uint8_t calcLcdTitleCenter(const char* str)
+{
+  uint8_t len = strlen(str);
+  return max(0, 7 - (len-1)/2);
+  
 }
 
 

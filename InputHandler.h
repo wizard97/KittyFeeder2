@@ -6,12 +6,14 @@
 #include "MenuSystem.h"
 #include "StorageMenu.h"
 #include "FeederUtils.h"
+#include "FeederConfig.h"
 
 typedef enum InputHandler
 {
     MenuNavigatorHandler,
     Feeder1MenuHandler,
     Feeder2MenuHandler,
+    TemperatureMenuHandler,
     NullHandler
 } InputHandler;
 
@@ -24,18 +26,24 @@ extern Button bLeft;
 extern Button bSelect;
 
 extern FeedCompart feeds[];
+extern ThermoCooler cooler;
 extern MenuSystem ms;
 extern InputHandler currHandler;
 
 extern void serviceButtons();
 extern bool anyBtnWasPressed();
+extern bool anyBtnIsPressed();
 
 void inputHandler();
 void menuNavigatorHandler();
 void feederMenuHandler(const unsigned char index);
 
+void temperatureMenuHandler();
+
 void inputHandler()
 {
+    static unsigned long long redraw_ts=0;
+
     serviceButtons();
     // which input handler do we use?
     switch (currHandler)
@@ -52,13 +60,20 @@ void inputHandler()
             feederMenuHandler(1);
             break;
 
+        case TemperatureMenuHandler:
+            temperatureMenuHandler();
+            break;
+
         case NullHandler:
             break;
 
         default:
             break;
     }
-    if (anyBtnWasPressed()) ms.display();
+    if (anyBtnWasPressed() || millis() >= redraw_ts) {
+        ms.display();
+        redraw_ts = millis() + LCD_AUTO_REDRAW;
+    }
 }
 
 void menuNavigatorHandler()
@@ -117,10 +132,10 @@ void feederMenuHandler(const unsigned char index)
     } else if (stor->curr_loc == 2) {
         //Mofifying Hours
         tmp = feeds[index].getHour();
-        if (bUp.wasPressed()) {
+        if (bUp.isPressed()) {
             tmp = (tmp == 23) ? tmp=0 : (tmp+1);
             feeds[index].setHour(tmp);
-        } else if (bDown.wasPressed()) {
+        } else if (bDown.isPressed()) {
             tmp = (tmp==0) ? tmp=23 : (tmp-1);
             feeds[index].setHour(tmp);
         }
@@ -138,6 +153,24 @@ void feederMenuHandler(const unsigned char index)
 
     }
 
+}
+
+void temperatureMenuHandler()
+{
+    int temp = cooler.getSetTemp();
+    if (bSelect.wasPressed() || bRight.wasPressed() || bLeft.wasPressed())
+    {
+        cooler.saveSettingsToEE();
+        ms.back();
+        return;
+    } else if(bUp.wasPressed()) {
+        temp++;
+    } else if (bDown.wasPressed()) {
+        temp--;
+    }
+    if (temp > MAX_COOLER_SET_TEMP) temp = MAX_COOLER_SET_TEMP;
+    else if (temp < MIN_COOLER_SET_TEMP) temp = MIN_COOLER_SET_TEMP;
+    cooler.setTemp(temp);
 }
 
 #endif
