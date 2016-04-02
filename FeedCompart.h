@@ -11,12 +11,8 @@
 #include "TimeLib.h"
 #include <EEPROM.h>
 #include "FeederUtils.h"
+#include "FeederConfig.h"
 
-
-// ms to open and close door
-#define DOOR_SPEED 3000
-// Mins door should stay open
-#define DOOR_OPEN_TIME 3
 
 #define FEED_COMPART_EE_SIZE sizeof(EECompartSettings)
 

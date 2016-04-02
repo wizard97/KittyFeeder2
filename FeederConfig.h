@@ -30,6 +30,11 @@ byte arrowChar[8] = {
 #define MAX_COOLER_SET_TEMP 80
 #define MIN_COOLER_SET_TEMP 35
 
+// ms to open and close door
+#define DOOR_SPEED 3000
+// Mins door should stay open
+#define DOOR_OPEN_TIME 3
+
 #define LCD_ROWS 2
 // How many ms to redraw menu automatically if no button pressed
 #define LCD_AUTO_REDRAW 1000

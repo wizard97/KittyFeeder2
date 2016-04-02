@@ -44,6 +44,7 @@ void displayFeed2(Menu *cp_menu);
   // Helper function
   void displayFeed(const uint8_t index, StorageMenu *cp_menu);
 void displayTemp(Menu *cp_menu);
+void displaySystemInfo(Menu *cp_menu);
 
 uint8_t calcLcdTitleCenter(const char* str);
 
@@ -85,6 +86,7 @@ Menu mm_feeds("Feeders", &displayMenu);
 Menu mm_temp("Cooler", &displayTemp);
 Menu mm_clock("Clock");
 Menu mm_wifi("Wifi");
+Menu mm_sys_info("About", &displaySystemInfo);
 
 // Pick pins without any special functionality
 LiquidCrystal lcd(22, 23, 24, 25, 26, 27);
@@ -137,6 +139,7 @@ void setup() {
   mm.add_menu(&mm_temp);
   mm.add_menu(&mm_clock);
   mm.add_menu(&mm_wifi);
+  mm.add_menu(&mm_sys_info);
 
   ms.set_root_menu(&mm);
 
@@ -191,8 +194,6 @@ void displayFeed(const uint8_t index, StorageMenu *cp_menu)
   if (curr.getMin() < 10) lcd.print(0);
   lcd.print(curr.getMin());
 
-  // Print arrow
-  LOG(LOG_DEBUG, "%d", stor->arrow_locs[stor->curr_loc]);
   lcd.setCursor(stor->arrow_locs[stor->curr_loc], 1);
   lcd.write(ARROW_CHAR);
 }
@@ -257,6 +258,17 @@ void displayTemp(Menu *cp_menu)
    lcd.write(ARROW_CHAR);
  
 }
+
+void displaySystemInfo(Menu *cp_menu)
+{
+  char str[] = "Version: "VERSION;
+  lcd.clear();
+  lcd.setCursor(calcLcdTitleCenter(str), 0);
+  lcd.print(str);
+  lcd.setCursor(0,1);
+  lcd.print("By Aaron Wisner");
+}
+
 
 void serviceSerial() {
   char inChar;
