@@ -12,6 +12,7 @@
 #include <EEPROM.h>
 #include "FeederUtils.h"
 #include "FeederConfig.h"
+#include "SoundPlayer.h"
 
 
 #define FEED_COMPART_EE_SIZE sizeof(EECompartSettings)
@@ -40,6 +41,7 @@ class FeedCompart
     } DoorState;
 
 private:
+    SoundPlayer &piezo;
     const uint16_t eepromLoc;
     EECompartSettings settings;
     Servo doorServo;
@@ -57,7 +59,8 @@ private:
     uint32_t generateCrc();
 
 public:
-    FeedCompart(uint16_t servoPin, uint16_t eepromLoc, uint16_t closeDeg, uint16_t openDeg);
+    FeedCompart(SoundPlayer &piezo, uint16_t servoPin, uint16_t eepromLoc,
+        uint16_t closeDeg, uint16_t openDeg);
     ~FeedCompart();
 
     void enable();
@@ -84,8 +87,8 @@ public:
 //Default it to zero
 uint8_t FeedCompart::_id_counter = 0;
 
-FeedCompart::FeedCompart(uint16_t servoPin, uint16_t eepromLoc, uint16_t closeDeg, uint16_t openDeg)
-: doorServo(), servoPin(servoPin), eepromLoc(eepromLoc),
+FeedCompart::FeedCompart(SoundPlayer &piezo, uint16_t servoPin, uint16_t eepromLoc, uint16_t closeDeg, uint16_t openDeg)
+: piezo(piezo), doorServo(), servoPin(servoPin), eepromLoc(eepromLoc),
 openDeg(openDeg), closeDeg(closeDeg), id(++_id_counter)
 {
     currDoorState = CLOSED;

@@ -7,6 +7,7 @@
 #include "StorageMenu.h"
 #include "FeederUtils.h"
 #include "FeederConfig.h"
+#include <TaskScheduler.h>
 
 typedef enum InputHandler
 {
@@ -29,6 +30,9 @@ extern FeedCompart feeds[];
 extern ThermoCooler cooler;
 extern MenuSystem ms;
 extern InputHandler currHandler;
+
+// Task for feeds
+extern Task tServiceFeeds;
 
 extern void serviceButtons();
 extern bool anyBtnWasPressed();
@@ -92,7 +96,7 @@ void feederMenuHandler(const unsigned char index)
     uint8_t tmp = 0;
 
 
-    // Leaving menu
+    // Leaving menu or next element
     if (bSelect.wasPressed() || bRight.wasPressed())
     {
         if (stor->curr_loc < 3) {
@@ -101,6 +105,9 @@ void feederMenuHandler(const unsigned char index)
             stor->curr_loc = 0;
             feeds[index].saveSettingsToEE();
             ms.back();
+            // Reenable feed servicing
+             tServiceFeeds.enableIfNot();
+             LOG(LOG_DEBUG, "Exiting feed menu, reenabling feed servicing");
             return;
         }
     } else if (bLeft.wasPressed()) {
