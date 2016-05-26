@@ -169,7 +169,7 @@ void loop() {
 void displayFeed1(Menu *cp_menu)
 {
   //temporarily stop servicing feeds
-  LOG(LOG_DEBUG, "Entering feed menu, disabling feed servicing");
+  if(currHandler != Feeder1MenuHandler) LOG(LOG_DEBUG, "Entering feed menu, disabling feed servicing");
   tServiceFeeds.disable();
   currHandler = Feeder1MenuHandler;
   displayFeed(0, (StorageMenu *)cp_menu);
@@ -177,7 +177,7 @@ void displayFeed1(Menu *cp_menu)
 
 void displayFeed2(Menu *cp_menu)
 {
-  LOG(LOG_DEBUG, "Entering feed menu, disabling feed servicing");
+  if(currHandler != Feeder2MenuHandler) LOG(LOG_DEBUG, "Entering feed menu, disabling feed servicing");
   tServiceFeeds.disable();
   currHandler = Feeder2MenuHandler;
   displayFeed(1, (StorageMenu *)cp_menu);
