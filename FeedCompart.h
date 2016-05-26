@@ -155,6 +155,7 @@ void FeedCompart::service()
                 if (curr >= set && curr < set + 60*DOOR_OPEN_TIME) {
                     msStateChange = millis();
                     currDoorState = OPENING;
+                    piezo.play(&SoundPlayer::open);
                     LOG(LOG_DEBUG, "Feeder %d opening!", id);
 
                 }
@@ -174,6 +175,7 @@ void FeedCompart::service()
                 if (curr >= set + 60*DOOR_OPEN_TIME) {
                     msStateChange = millis();
                     currDoorState = CLOSING;
+                    piezo.play(&SoundPlayer::close);
                     LOG(LOG_DEBUG, "Feeder %d closing!", id);
 
                 }

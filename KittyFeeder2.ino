@@ -1,4 +1,4 @@
-#include <DS3232RTC.h> 
+#include <DS3232RTC.h>
 #include <TimeLib.h>
 #include <EEPROM.h>
 #include <avr/wdt.h>
@@ -16,6 +16,7 @@
 // Have to use this library due to conflicts with Servo interrupts
 #include "SoundPlayer.h"
 #include <LiquidCrystal.h>
+#include "ESP8266.h"
 
 char err_buf[ERROR_BUF_SIZE];
 uint16_t err_remain;
@@ -35,25 +36,28 @@ void serviceFeeds();
 void serviceCooler();
 void serviceSerial();
 void servicePiezo();
+void serviceWifi();
 double getTemp();
 void inputHandler();
 
 bool anyBtnWasPressed();
 bool anyBtnIsPressed();
 
+void displayIdleMenu(Menu *cp_menu);
 void displayMenu(Menu *cp_menu);
 void displayFeed1(Menu *cp_menu);
 void displayFeed2(Menu *cp_menu);
-  // Helper function
-  void displayFeed(const uint8_t index, StorageMenu *cp_menu);
+// Helper function
+void displayFeed(const uint8_t index, StorageMenu *cp_menu);
 void displayTemp(Menu *cp_menu);
 void displaySystemInfo(Menu *cp_menu);
 
 uint8_t calcLcdTitleCenter(const char* str);
 
+//wifi
+ESP8266 wifi(Serial1, 115200);
 //piezo
 SoundPlayer piezo(PIEZO_PIN1, PIEZO_PIN2);
-
 // Current input handler
 InputHandler currHandler;
 //buttons
@@ -70,24 +74,27 @@ Button *const bAll[] = { &bSelect, &bLeft, &bRight, &bUp, &bDown };
 FeedCompart feeds[] = {
   FeedCompart(piezo, SERVO1_PIN, EEPROM_FEEDER_SETTING_LOC, SERVO1_CLOSE, SERVO1_OPEN),
   FeedCompart(piezo, SERVO2_PIN, EEPROM_FEEDER_SETTING_LOC + FEED_COMPART_EE_SIZE, SERVO2_CLOSE, SERVO2_OPEN),
-  };
+};
 
 ThermoCooler cooler(THERMO_COOLER_PIN, &getTemp, EEPROM_COOLER_SETTINGS_LOC);
 
 // Menu variables
 MenuSystem ms;
+Menu mm_idle("Idle Menu", &displayIdleMenu);
 Menu mm("KittyFeeder v2.0", &displayMenu);
 Menu mm_feeds("Feeders", &displayMenu);
-  // Menu storage struct to track state
-  FeedMenuStorage fm1 = {.arrow_locs = feedMenuArrowLocs, 
-          .num_locs = sizeof(feedMenuArrowLocs)/sizeof(feedMenuArrowLocs[0]),
-          .curr_loc = 0 },
-          fm2 = {.arrow_locs = feedMenuArrowLocs, 
-          .num_locs = sizeof(feedMenuArrowLocs)/sizeof(feedMenuArrowLocs[0]),
-          .curr_loc = 0 };
-          
-  StorageMenu feeds_feed1("Left Feeder", &fm1, sizeof(fm1), &displayFeed1);
-  StorageMenu feeds_feed2("Right Feeder", &fm2, sizeof(fm2), &displayFeed2);
+// Menu storage struct to track state
+FeedMenuStorage fm1 = {.arrow_locs = feedMenuArrowLocs,
+                       .num_locs = sizeof(feedMenuArrowLocs) / sizeof(feedMenuArrowLocs[0]),
+                       .curr_loc = 0
+                      },
+                fm2 = {.arrow_locs = feedMenuArrowLocs,
+                       .num_locs = sizeof(feedMenuArrowLocs) / sizeof(feedMenuArrowLocs[0]),
+                       .curr_loc = 0
+                      };
+
+StorageMenu feeds_feed1("Left Feeder", &fm1, sizeof(fm1), &displayFeed1);
+StorageMenu feeds_feed2("Right Feeder", &fm2, sizeof(fm2), &displayFeed2);
 
 Menu mm_temp("Cooler", &displayTemp);
 Menu mm_clock("Clock");
@@ -105,8 +112,10 @@ Task tServiceCooler(2000, TASK_FOREVER, &serviceCooler, &ts, true);
 Task tServiceInput(TASK_IMMEDIATE, TASK_FOREVER, &inputHandler, &ts, true);
 Task tServiceSerial(1, TASK_FOREVER, &serviceSerial, &ts, true);
 Task tServicePiezo(TASK_IMMEDIATE, TASK_FOREVER, &servicePiezo, &ts, true);
+Task tServiceWifi(100, TASK_FOREVER, &serviceWifi, &ts, true); // dont run as often because too exspensive with cpu time
 
 DHT dht(DHTPIN, DHTTYPE);
+
 
 void setup() {
   Serial.begin(115200);
@@ -115,11 +124,11 @@ void setup() {
   setSyncInterval(RTC_SYNC_INTERVAL);
 
   LOG(LOG_DEBUG, "Welcome to the KittyFeeder " VERSION);
-  
+
   if (timeStatus() != timeSet)
-     LOG(LOG_ERROR, "Unable to sync with the RTC");
+    LOG(LOG_ERROR, "Unable to sync with the RTC");
   else
-     LOG(LOG_DEBUG, "RTC has set the system time");
+    LOG(LOG_DEBUG, "RTC has set the system time");
 
   if (EEPROM.read(EEPROM_WDT_DEBUG_LOC))
   {
@@ -130,30 +139,39 @@ void setup() {
 
   }
 
+
   // Begin KittyFeeder objects
-  for (int i=0; i < sizeof(feeds)/sizeof(feeds[0]); i++)
+  for (int i = 0; i < sizeof(feeds) / sizeof(feeds[0]); i++)
   {
-     feeds[i].begin();
+    feeds[i].begin();
   }
   cooler.begin();
   lcd.createChar(ARROW_CHAR, arrowChar);
   lcd.begin(16, LCD_ROWS);
 
   LOG(LOG_DEBUG, "Building LCD menu tree...");
+  mm_idle.add_menu(&mm);
   mm.add_menu(&mm_feeds);
-    mm_feeds.add_menu(&feeds_feed1);
-    mm_feeds.add_menu(&feeds_feed2);
+  mm_feeds.add_menu(&feeds_feed1);
+  mm_feeds.add_menu(&feeds_feed2);
   mm.add_menu(&mm_temp);
   mm.add_menu(&mm_clock);
   mm.add_menu(&mm_wifi);
   mm.add_menu(&mm_sys_info);
 
-  ms.set_root_menu(&mm);
+  ms.set_root_menu(&mm_idle);
 
   // Set input handler
-  currHandler = MenuNavigatorHandler;
+  currHandler = IdleMenuHandler;
   LOG(LOG_DEBUG, "Done building LCD menu tree");
   ms.display();
+
+  if (wifi.setOprToSoftAP() && wifi.setSoftAPParam(SSID, PASSWORD)
+      && wifi.enableMUX() && wifi.startTCPServer(80) && wifi.setTCPServerTimeout(10)) {
+    LOG(LOG_DEBUG, "Success creating AP SSID: '%s', PASS: '%s'", SSID, PASSWORD);
+  } else {
+    LOG(LOG_ERROR, "Failed to create wifi AP");
+  }
 
   LOG(LOG_DEBUG, "Startup complete! Starting tasks....\n");
   piezo.play(&SoundPlayer::boot);
@@ -169,7 +187,7 @@ void loop() {
 void displayFeed1(Menu *cp_menu)
 {
   //temporarily stop servicing feeds
-  if(currHandler != Feeder1MenuHandler) LOG(LOG_DEBUG, "Entering feed menu, disabling feed servicing");
+  if (currHandler != Feeder1MenuHandler) LOG(LOG_DEBUG, "Entering feed menu, disabling feed servicing");
   tServiceFeeds.disable();
   currHandler = Feeder1MenuHandler;
   displayFeed(0, (StorageMenu *)cp_menu);
@@ -177,11 +195,11 @@ void displayFeed1(Menu *cp_menu)
 
 void displayFeed2(Menu *cp_menu)
 {
-  if(currHandler != Feeder2MenuHandler) LOG(LOG_DEBUG, "Entering feed menu, disabling feed servicing");
+  if (currHandler != Feeder2MenuHandler) LOG(LOG_DEBUG, "Entering feed menu, disabling feed servicing");
   tServiceFeeds.disable();
   currHandler = Feeder2MenuHandler;
   displayFeed(1, (StorageMenu *)cp_menu);
-  
+
 }
 
 void displayFeed(const uint8_t index, StorageMenu *cp_menu)
@@ -192,11 +210,11 @@ void displayFeed(const uint8_t index, StorageMenu *cp_menu)
   const char lf[] = "Left Feeder";
   const char rf[] = "Right Feeder";
   const char *name = index ? rf : lf;
- 
+
   lcd.clear();
   lcd.setCursor(calcLcdTitleCenter(name), 0);
   lcd.print(name);
-    
+
   lcd.setCursor(0, 1);
   lcd.print(curr.isEnabled() ? " On  " : " Off ");
   lcd.print(dayShortStr(curr.getWeekDay()));
@@ -212,7 +230,7 @@ void displayFeed(const uint8_t index, StorageMenu *cp_menu)
 }
 
 void displayMenu(Menu *cp_menu) {
-  
+
   currHandler = MenuNavigatorHandler;
   lcd.clear();
   lcd.setCursor(0, 0);
@@ -259,28 +277,54 @@ void displayTemp(Menu *cp_menu)
   char str[25];
   currHandler = TemperatureMenuHandler;
   lcd.clear();
-  snprintf(str, sizeof(str), "%s %d%cF %d%%", cp_menu->get_name(), 
-            (int)round(cooler.getTemp()), 0xDF, cooler.getPwmPercent());
+  snprintf(str, sizeof(str), "%s %d%cF %d%%", cp_menu->get_name(),
+           (int)round(cooler.getTemp()), 0xDF, cooler.getPwmPercent());
   lcd.setCursor(calcLcdTitleCenter(str), 0);
   lcd.print(str);
 
 
   snprintf(str, sizeof(str), "%d%cF", cooler.getSetTemp(), 0xDF);
-  lcd.setCursor(calcLcdTitleCenter(str),1);
+  lcd.setCursor(calcLcdTitleCenter(str), 1);
   lcd.print(str);
-  lcd.setCursor(calcLcdTitleCenter(str)-1,1);
-   lcd.write(ARROW_CHAR);
- 
+  lcd.setCursor(calcLcdTitleCenter(str) - 1, 1);
+  lcd.write(ARROW_CHAR);
+
 }
 
 void displaySystemInfo(Menu *cp_menu)
 {
+  currHandler = MenuNavigatorHandler;
   char str[] = "Version: "VERSION;
   lcd.clear();
   lcd.setCursor(calcLcdTitleCenter(str), 0);
   lcd.print(str);
-  lcd.setCursor(0,1);
+  lcd.setCursor(0, 1);
   lcd.print("By Aaron Wisner");
+}
+
+void displayIdleMenu(Menu *cp_menu)
+{
+  currHandler = IdleMenuHandler;
+  char str[17];
+  lcd.clear();
+  //Format the time string
+  char mstr[5];
+  char sstr[5];
+  const char ltt[] = "0%d";
+  const char gtet[] = "%d";
+  int mins = minute();
+  int secs = second();
+  snprintf(mstr, sizeof(mstr), mins < 10 ? ltt : gtet, mins);
+  snprintf(sstr, sizeof(sstr), secs < 10 ? ltt : gtet, secs);
+  snprintf(str, sizeof(str), "%s %d:%s:%s", dayShortStr(weekday()), hour(), mstr, sstr);
+  lcd.setCursor(calcLcdTitleCenter(str), 0);
+  lcd.print(str);
+
+  //Second line
+  snprintf(str, sizeof(str), "1:%s %d%% 2:%s", feeds[0].isEnabled() ? "On" : "Off",
+           cooler.getPwmPercent(), feeds[1].isEnabled() ? "On" : "Off");
+  lcd.setCursor(calcLcdTitleCenter(str), 1);
+  lcd.print(str);
 }
 
 
@@ -320,30 +364,30 @@ void servicePiezo()
 
 bool anyBtnWasPressed()
 {
-  for (int i=0; i< sizeof(bAll)/sizeof(bAll[0]); i++)
+  for (int i = 0; i < sizeof(bAll) / sizeof(bAll[0]); i++)
   {
     // Some weird reason where they are Null
-    if(bAll[i]->wasPressed()) return true;
+    if (bAll[i]->wasPressed()) return true;
   }
   return false;
 }
 
 bool anyBtnIsPressed()
 {
-  for (int i=0; i< sizeof(bAll)/sizeof(bAll[0]); i++)
+  for (int i = 0; i < sizeof(bAll) / sizeof(bAll[0]); i++)
   {
     // Some weird reason where they are Null
-    if(bAll[i]->isPressed()) return true;
+    if (bAll[i]->isPressed()) return true;
   }
   return false;
 }
 
 void serviceButtons()
 {
-  for (int i=0; i< sizeof(bAll)/sizeof(bAll[0]); i++)
+  for (int i = 0; i < sizeof(bAll) / sizeof(bAll[0]); i++)
   {
     // Some weird reason where they are Null
-    if(bAll[i]) bAll[i]->read();
+    if (bAll[i]) bAll[i]->read();
   }
 
   if (anyBtnWasPressed()) {
@@ -360,7 +404,7 @@ void serviceButtons()
 void serviceFeeds()
 {
   bool enCooler = false;
-  for (int i=0; i < sizeof(feeds)/sizeof(feeds[0]); i++)
+  for (int i = 0; i < sizeof(feeds) / sizeof(feeds[0]); i++)
   {
     feeds[i].service();
     enCooler |= feeds[i].isEnabled();
@@ -376,6 +420,77 @@ void serviceCooler()
   LOG(LOG_DEBUG, "System Temp %dF (%d%%)", (int)round(cooler.getTemp()), cooler.getPwmPercent());
 
 }
+
+void serviceWifi()
+{
+  static int lastMux = -1;
+  char buffer[200];
+  uint8_t mux_id;
+  uint32_t len = wifi.recv(&mux_id, (uint8_t*)buffer, sizeof(buffer), 50);
+
+  // Otherwise service old client
+  if (len > 0 && lastMux != mux_id) {
+    LOG(LOG_DEBUG, "Wifi got client id:'%d'", mux_id);
+    char rply[] PROGMEM =
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Type: text/html\r\n"
+      "Connection: close\r\n"
+      "\r\n"      
+      "<!DOCTYPE html>"
+      "<html>"
+      "<head>"
+      "<meta charset=\"UTF-8\">"
+      "<title>Kitty Feeder 2K</title>"
+      "</head>"
+      "<body>"
+      "<h1>Kitty Feeder 2K Web Interface!</h1>"
+      "<p style='color: red'>Note that this web interface is under development</p>"
+      "<p>You are running: '" VERSION 
+      "', visit <a href='https://github.com/wizard97/KittyFeeder2'>the GitHub repo for firware updates</a>";
+
+    // Send data
+    wifi.send(mux_id, (uint8_t *)rply, sizeof(rply));
+
+    //Format the time string
+    char mstr[5];
+    char sstr[5];
+    const char ltt[] = "0%d";
+    const char gtet[] = "%d";
+    int mins = minute();
+    int secs = second();
+    snprintf(mstr, sizeof(mstr), mins < 10 ? ltt : gtet, mins);
+    snprintf(sstr, sizeof(sstr), secs < 10 ? ltt : gtet, secs);
+    
+    int buflen = MIN(snprintf((char*)buffer, sizeof(buffer), 
+        "<p>System Time: %s %d:%s:%s (uptime: %d mins)</p>", 
+        dayShortStr(weekday()), hour(), mstr, sstr, millis()/60000), sizeof(buffer)-1);
+    wifi.send(mux_id, (uint8_t *)buffer, buflen);
+        
+    buflen = MIN(snprintf((char*)buffer, sizeof(buffer), 
+        "<p>Cooler: %dF (set: %dF) (%d%%)</p>", 
+        (int)round(cooler.getTemp()), cooler.getSetTemp(), cooler.getPwmPercent()), sizeof(buffer)-1);
+
+    wifi.send(mux_id, (uint8_t *)buffer, buflen);
+
+    buflen = MIN(snprintf((char*)buffer, sizeof(buffer), 
+        "<p>Feed #1: %s (%s, %d:%d), Feed #2: %s (%s, %d:%d) </p><body></html>", 
+        feeds[0].isEnabled() ? "On" : "Off", dayShortStr(feeds[0].getWeekDay()), feeds[0].getHour(), feeds[0].getMin(),
+        feeds[1].isEnabled() ? "On" : "Off", dayShortStr(feeds[1].getWeekDay()), feeds[1].getHour(), feeds[1].getMin()),
+        sizeof(buffer)-1);
+
+    wifi.send(mux_id, (uint8_t *)buffer, buflen);
+
+    if (wifi.releaseTCP(mux_id)) {
+      LOG(LOG_DEBUG, "Released client id: '%d'", mux_id);
+    } else {
+      LOG(LOG_ERROR, "Error releasing client id: '%d'", mux_id);
+    }
+    lastMux = mux_id;
+  } else if (len <= 0){
+    lastMux = -1;
+  }
+}
+
 
 double getTemp()
 {
@@ -395,12 +510,12 @@ double getTemp()
 uint8_t calcLcdTitleCenter(const char* str)
 {
   uint8_t len = strlen(str);
-  return max(0, 7 - (len-1)/2);
-  
+  return max(0, 7 - (len - 1) / 2);
+
 }
 
 // Pin change interrupt for buttons
-ISR (PCINT1_vect) 
+ISR (PCINT1_vect)
 {
   serviceButtons();
 }
@@ -412,40 +527,40 @@ bool wdtOn() {
   //reset watchdog
   wdt_reset();
   //set up WDT interrupt
-  WDTCSR = (1<<WDCE)|(1<<WDE);
+  WDTCSR = (1 << WDCE) | (1 << WDE);
   //Start watchdog timer with aDelay prescaller
-  WDTCSR = (1<<WDIE)|(1<<WDE)|(WDTO_2S & 0x2F);
-//  WDTCSR = (1<<WDIE)|(WDTO_2S & 0x2F);  // interrupt only without reset
+  WDTCSR = (1 << WDIE) | (1 << WDE) | (WDTO_2S & 0x2F);
+  //  WDTCSR = (1<<WDIE)|(WDTO_2S & 0x2F);  // interrupt only without reset
   //Enable global interrupts
   sei();
 }
 
 /**
- * This On Disable method disables WDT
- */
+   This On Disable method disables WDT
+*/
 void wdtOff()
 {
   wdt_disable();
 }
 
 /**
- * This is a periodic reset of WDT
- */
+   This is a periodic reset of WDT
+*/
 void wdtService()
 {
   wdt_reset();
 }
 
 /**
- * Watchdog timeout ISR
- *
- */
+   Watchdog timeout ISR
+
+*/
 ISR(WDT_vect)
 {
   Task& T = ts.currentTask();
 
   digitalWrite(13, HIGH);
   EEPROM.write(EEPROM_WDT_DEBUG_LOC, (byte)T.getId());
-  EEPROM.write(EEPROM_WDT_DEBUG_LOC+1, (byte)T.getControlPoint());
+  EEPROM.write(EEPROM_WDT_DEBUG_LOC + 1, (byte)T.getControlPoint());
   digitalWrite(13, LOW);
 }

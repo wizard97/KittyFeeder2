@@ -18,6 +18,9 @@ byte arrowChar[8] = {
 #define VERSION "v2.0"
 #define RTC_SYNC_INTERVAL 30
 
+#define SSID        "KittyFeeder 2k"
+#define PASSWORD    "12345678"
+
 #define PIEZO_PIN1 9
 #define PIEZO_PIN2 10
 
@@ -54,7 +57,7 @@ byte arrowChar[8] = {
 #define BTN_PIN_LEFT A11
 #define BTN_PIN_SELECT A12
 
-#define EEPROM_FEEDER_SETTING_LOC 0
+#define EEPROM_FEEDER_SETTING_LOC 100
 #define EEPROM_COOLER_SETTINGS_LOC (EEPROM_FEEDER_SETTING_LOC + 2*FEED_COMPART_EE_SIZE)
 // Requires two bytes from this index
 #define EEPROM_WDT_DEBUG_LOC (EEPROM.length()-1-2)

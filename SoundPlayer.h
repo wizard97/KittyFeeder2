@@ -111,6 +111,8 @@ class SoundPlayer
 {
 public:
     static struct melody boot;
+    static struct melody open;
+    static struct melody close;
     SoundPlayer(int pin1, int pin2)
     {
         _pin1 = pin1;
@@ -132,7 +134,7 @@ public:
                 _idx = 0;
             } else {
                 _start = millis();
-                toneAC2(_pin1, _pin2, _curr->notes[_idx], _curr->durr[_idx]);
+                toneAC2(_pin1, _pin2, _curr->notes[_idx], _curr->durr[_idx], true);
             }
         }
     }
@@ -141,7 +143,7 @@ public:
     {
         _curr = m;
         _start = millis();
-        toneAC2(_pin1, _pin2, m->notes[0], m->durr[0]);
+        toneAC2(_pin1, _pin2, m->notes[0], m->durr[0], true);
         _idx = 0;
 
     }
@@ -174,4 +176,14 @@ struct melody SoundPlayer::boot =
     { .durr = {100,100,100,100,100,100,200},
     .notes = {NOTE_C4, NOTE_E4, NOTE_G4, NOTE_C5, NOTE_G4, NOTE_E4, NOTE_C4},
     .len = 7};
+
+    struct melody SoundPlayer::close =
+        { .durr = {2000,2000,3000},
+        .notes = {NOTE_A4, NOTE_FS4, NOTE_D4},
+        .len = 3};
+
+    struct melody SoundPlayer::open =
+        { .durr = {2000,2000,3000},
+        .notes = {NOTE_D4, NOTE_FS4, NOTE_A4},
+        .len = 3};
 #endif

@@ -11,6 +11,7 @@
 
 typedef enum InputHandler
 {
+    IdleMenuHandler,
     MenuNavigatorHandler,
     Feeder1MenuHandler,
     Feeder2MenuHandler,
@@ -52,6 +53,9 @@ void inputHandler()
     // which input handler do we use?
     switch (currHandler)
     {
+        case IdleMenuHandler:
+            if (anyBtnWasPressed()) ms.select(false);
+            break;
         case MenuNavigatorHandler:
             menuNavigatorHandler();
             break;
