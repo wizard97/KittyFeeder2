@@ -18,11 +18,14 @@ byte arrowChar[8] = {
 #define VERSION "v2.0"
 #define RTC_SYNC_INTERVAL 30
 
-#define SERVO1_PIN 9
+#define PIEZO_PIN1 9
+#define PIEZO_PIN2 10
+
+#define SERVO1_PIN 6
 #define SERVO1_OPEN 90
 #define SERVO1_CLOSE 0
 
-#define SERVO2_PIN 10
+#define SERVO2_PIN 7
 #define SERVO2_OPEN 0
 #define SERVO2_CLOSE 90
 

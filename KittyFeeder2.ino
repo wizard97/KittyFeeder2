@@ -13,6 +13,8 @@
 #include "Button.h"
 #include <MenuSystem.h>
 #include "StorageMenu.h"
+// Have to use this library due to conflicts with Servo interrupts
+#include "SoundPlayer.h"
 #include <LiquidCrystal.h>
 
 char err_buf[ERROR_BUF_SIZE];
@@ -32,6 +34,7 @@ void wdtService(); bool wdtOn(); void wdtOff();
 void serviceFeeds();
 void serviceCooler();
 void serviceSerial();
+void servicePiezo();
 double getTemp();
 void inputHandler();
 
@@ -48,6 +51,9 @@ void displaySystemInfo(Menu *cp_menu);
 
 uint8_t calcLcdTitleCenter(const char* str);
 
+//piezo
+SoundPlayer piezo(PIEZO_PIN1, PIEZO_PIN2);
+
 // Current input handler
 InputHandler currHandler;
 //buttons
@@ -62,8 +68,8 @@ Button *const bAll[] = { &bSelect, &bLeft, &bRight, &bUp, &bDown };
 
 // Declare all your feed compartments and link them with servos
 FeedCompart feeds[] = {
-  FeedCompart(SERVO1_PIN, EEPROM_FEEDER_SETTING_LOC, SERVO1_CLOSE, SERVO1_OPEN),
-  FeedCompart(SERVO2_PIN, EEPROM_FEEDER_SETTING_LOC + FEED_COMPART_EE_SIZE, SERVO2_CLOSE, SERVO2_OPEN),
+  FeedCompart(piezo, SERVO1_PIN, EEPROM_FEEDER_SETTING_LOC, SERVO1_CLOSE, SERVO1_OPEN),
+  FeedCompart(piezo, SERVO2_PIN, EEPROM_FEEDER_SETTING_LOC + FEED_COMPART_EE_SIZE, SERVO2_CLOSE, SERVO2_OPEN),
   };
 
 ThermoCooler cooler(THERMO_COOLER_PIN, &getTemp, EEPROM_COOLER_SETTINGS_LOC);
@@ -98,6 +104,7 @@ Task tServiceFeeds(TASK_IMMEDIATE, TASK_FOREVER, &serviceFeeds, &ts, true);
 Task tServiceCooler(2000, TASK_FOREVER, &serviceCooler, &ts, true);
 Task tServiceInput(TASK_IMMEDIATE, TASK_FOREVER, &inputHandler, &ts, true);
 Task tServiceSerial(1, TASK_FOREVER, &serviceSerial, &ts, true);
+Task tServicePiezo(TASK_IMMEDIATE, TASK_FOREVER, &servicePiezo, &ts, true);
 
 DHT dht(DHTPIN, DHTTYPE);
 
@@ -149,23 +156,29 @@ void setup() {
   ms.display();
 
   LOG(LOG_DEBUG, "Startup complete! Starting tasks....\n");
+  piezo.play(&SoundPlayer::boot);
   tWatchdog.enableDelayed();
 
   //teporary crap
 }
 
 void loop() {
-ts.execute();
+  ts.execute();
 }
 
 void displayFeed1(Menu *cp_menu)
 {
+  //temporarily stop servicing feeds
+  LOG(LOG_DEBUG, "Entering feed menu, disabling feed servicing");
+  tServiceFeeds.disable();
   currHandler = Feeder1MenuHandler;
   displayFeed(0, (StorageMenu *)cp_menu);
 }
 
 void displayFeed2(Menu *cp_menu)
 {
+  LOG(LOG_DEBUG, "Entering feed menu, disabling feed servicing");
+  tServiceFeeds.disable();
   currHandler = Feeder2MenuHandler;
   displayFeed(1, (StorageMenu *)cp_menu);
   
@@ -199,6 +212,7 @@ void displayFeed(const uint8_t index, StorageMenu *cp_menu)
 }
 
 void displayMenu(Menu *cp_menu) {
+  
   currHandler = MenuNavigatorHandler;
   lcd.clear();
   lcd.setCursor(0, 0);
@@ -299,6 +313,11 @@ void serviceSerial() {
   }
 }
 
+void servicePiezo()
+{
+  piezo.service();
+}
+
 bool anyBtnWasPressed()
 {
   for (int i=0; i< sizeof(bAll)/sizeof(bAll[0]); i++)
@@ -326,12 +345,16 @@ void serviceButtons()
     // Some weird reason where they are Null
     if(bAll[i]) bAll[i]->read();
   }
-  const char *str = "button pressed";
-  if (bSelect.wasPressed()) LOG(LOG_DEBUG, "Select %s", str);
-  if (bRight.wasPressed()) LOG(LOG_DEBUG, "Right %s", str);
-  if (bLeft.wasPressed()) LOG(LOG_DEBUG, "Left %s", str);
-  if (bUp.wasPressed()) LOG(LOG_DEBUG, "Up %s", str);
-  if (bDown.wasPressed()) LOG(LOG_DEBUG, "Down %s", str);
+
+  if (anyBtnWasPressed()) {
+    piezo.click();
+    const char *str = "button pressed";
+    if (bSelect.wasPressed()) LOG(LOG_DEBUG, "Select %s", str);
+    if (bRight.wasPressed()) LOG(LOG_DEBUG, "Right %s", str);
+    if (bLeft.wasPressed()) LOG(LOG_DEBUG, "Left %s", str);
+    if (bUp.wasPressed()) LOG(LOG_DEBUG, "Up %s", str);
+    if (bDown.wasPressed()) LOG(LOG_DEBUG, "Down %s", str);
+  }
 }
 
 void serviceFeeds()
@@ -376,6 +399,11 @@ uint8_t calcLcdTitleCenter(const char* str)
   
 }
 
+// Pin change interrupt for buttons
+ISR (PCINT1_vect) 
+{
+  serviceButtons();
+}
 
 bool wdtOn() {
 
