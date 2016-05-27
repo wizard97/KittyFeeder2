@@ -32,8 +32,6 @@ extern ThermoCooler cooler;
 extern MenuSystem ms;
 extern InputHandler currHandler;
 
-// Task for feeds
-extern Task tServiceFeeds;
 
 extern void serviceButtons();
 extern bool anyBtnWasPressed();
@@ -110,7 +108,7 @@ void feederMenuHandler(const unsigned char index)
             feeds[index].saveSettingsToEE();
             ms.back();
             // Reenable feed servicing
-             tServiceFeeds.enableIfNot();
+             feeds[index].unlockFeed();
              LOG(LOG_DEBUG, "Exiting feed menu, reenabling feed servicing");
             return;
         }

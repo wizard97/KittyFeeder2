@@ -51,7 +51,7 @@ private:
     unsigned long msStateChange;
     // Servo open and close positions
     const uint16_t openDeg, closeDeg;
-
+    bool lock;
     uint8_t id;
     static uint8_t _id_counter;
 
@@ -67,6 +67,8 @@ public:
     void disable();
     void service();
     void begin();
+    void lockFeed() { lock = true; }
+    void unlockFeed() { lock = false; }
 
     // getters
     Servo &getServo();
@@ -91,6 +93,7 @@ FeedCompart::FeedCompart(SoundPlayer &piezo, uint16_t servoPin, uint16_t eepromL
 : piezo(piezo), doorServo(), servoPin(servoPin), eepromLoc(eepromLoc),
 openDeg(openDeg), closeDeg(closeDeg), id(++_id_counter)
 {
+    lock = false;
     currDoorState = CLOSED;
     msStateChange = 0;
 }
@@ -137,33 +140,37 @@ void FeedCompart::service()
 {
     time_t curr = now();
 
-    if ((settings.enabled && weekday(curr) == settings.Wday)) {
-        // figure out the time_t the door should open
-        tmElements_t to_open;
-        breakTime(curr, to_open);
-        // We know the day is correct, so just fil in the rest
-        to_open.Hour = settings.Hour;
-        to_open.Minute = settings.Minute;
-        to_open.Second = 0;
-        // This is the timestamp it should open
-        time_t set =  makeTime(to_open);
-
         // Run the state machine for the door
         switch(currDoorState)
         {
             case CLOSED:
-                if (curr >= set && curr < set + 60*DOOR_OPEN_TIME) {
-                    msStateChange = millis();
-                    currDoorState = OPENING;
-                    piezo.play(&SoundPlayer::open);
-                    LOG(LOG_DEBUG, "Feeder %d opening!", id);
+                if ((settings.enabled && !lock && weekday(curr) == settings.Wday)) {
+                    // figure out the time_t the door should open
+                    tmElements_t to_open;
+                    breakTime(curr, to_open);
+                    // We know the day is correct, so just fil in the rest
+                    to_open.Hour = settings.Hour;
+                    to_open.Minute = settings.Minute;
+                    to_open.Second = 0;
+                    // This is the timestamp it should open
+                    time_t set =  makeTime(to_open);
 
+                    //State transition
+                    if (curr >= set && curr < set + 60*DOOR_OPEN_TIME) {
+                        msStateChange = millis();
+                        currDoorState = OPENING;
+                        piezo.play(&SoundPlayer::open);
+                        LOG(LOG_DEBUG, "Feeder %d opening!", id);
+
+                    }
                 }
+                doorServo.write(closeDeg);
                 break;
 
             case OPENING:
+
                 if (doorServo.read() != openDeg) {
-                    doorServo.write(map((long int)(millis() - msStateChange), 0,
+                    doorServo.write(map((millis() - msStateChange), 0,
                         DOOR_SPEED, closeDeg, openDeg));
                 } else {
                     msStateChange = millis();
@@ -172,18 +179,18 @@ void FeedCompart::service()
                 break;
 
             case OPEN:
-                if (curr >= set + 60*DOOR_OPEN_TIME) {
+                if (millis() >= msStateChange + 60000*DOOR_OPEN_TIME) {
                     msStateChange = millis();
                     currDoorState = CLOSING;
                     piezo.play(&SoundPlayer::close);
                     LOG(LOG_DEBUG, "Feeder %d closing!", id);
-
                 }
+                doorServo.write(openDeg);
                 break;
 
             case CLOSING:
                 if (doorServo.read() != closeDeg) {
-                    doorServo.write(map((long int)(millis() - msStateChange), 0,
+                    doorServo.write(map((millis() - msStateChange), 0,
                         DOOR_SPEED, openDeg, closeDeg));
                 } else {
                     msStateChange = millis();
@@ -197,11 +204,9 @@ void FeedCompart::service()
             default:
                 msStateChange = millis();
                 currDoorState = CLOSED;
+                doorServo.write(closeDeg);
                 break;
         }
-    } else {
-        currDoorState = CLOSED;
-    }
 
 }
 

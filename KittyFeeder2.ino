@@ -37,6 +37,10 @@ void serviceCooler();
 void serviceSerial();
 void servicePiezo();
 void serviceWifi();
+
+void enableWifi();
+void disableWifi();
+
 double getTemp();
 void inputHandler();
 
@@ -112,7 +116,7 @@ Task tServiceCooler(2000, TASK_FOREVER, &serviceCooler, &ts, true);
 Task tServiceInput(TASK_IMMEDIATE, TASK_FOREVER, &inputHandler, &ts, true);
 Task tServiceSerial(1, TASK_FOREVER, &serviceSerial, &ts, true);
 Task tServicePiezo(TASK_IMMEDIATE, TASK_FOREVER, &servicePiezo, &ts, true);
-Task tServiceWifi(100, TASK_FOREVER, &serviceWifi, &ts, true); // dont run as often because too exspensive with cpu time
+Task tServiceWifi(500, TASK_FOREVER, &serviceWifi, &ts, true); // dont run as often because too exspensive with cpu time
 
 DHT dht(DHTPIN, DHTTYPE);
 
@@ -138,8 +142,12 @@ void setup() {
     EEPROM.write(EEPROM_WDT_DEBUG_LOC + 1, 0);
 
   }
-
-
+  //Reset Wifi
+  disableWifi();
+  #ifdef ENABLE_WIFI
+    enableWifi();
+  #endif
+  
   // Begin KittyFeeder objects
   for (int i = 0; i < sizeof(feeds) / sizeof(feeds[0]); i++)
   {
@@ -188,7 +196,7 @@ void displayFeed1(Menu *cp_menu)
 {
   //temporarily stop servicing feeds
   if (currHandler != Feeder1MenuHandler) LOG(LOG_DEBUG, "Entering feed menu, disabling feed servicing");
-  tServiceFeeds.disable();
+  feeds[0].lockFeed();
   currHandler = Feeder1MenuHandler;
   displayFeed(0, (StorageMenu *)cp_menu);
 }
@@ -196,7 +204,7 @@ void displayFeed1(Menu *cp_menu)
 void displayFeed2(Menu *cp_menu)
 {
   if (currHandler != Feeder2MenuHandler) LOG(LOG_DEBUG, "Entering feed menu, disabling feed servicing");
-  tServiceFeeds.disable();
+  feeds[1].lockFeed();
   currHandler = Feeder2MenuHandler;
   displayFeed(1, (StorageMenu *)cp_menu);
 
@@ -321,8 +329,8 @@ void displayIdleMenu(Menu *cp_menu)
   lcd.print(str);
 
   //Second line
-  snprintf(str, sizeof(str), "1:%s %d%% 2:%s", feeds[0].isEnabled() ? "On" : "Off",
-           cooler.getPwmPercent(), feeds[1].isEnabled() ? "On" : "Off");
+  snprintf(str, sizeof(str), "1:%s %dF 2:%s", feeds[0].isEnabled() ? "On" : "Off",
+           (int)round(cooler.getTemp()), feeds[1].isEnabled() ? "On" : "Off");
   lcd.setCursor(calcLcdTitleCenter(str), 1);
   lcd.print(str);
 }
@@ -515,9 +523,22 @@ uint8_t calcLcdTitleCenter(const char* str)
 }
 
 // Pin change interrupt for buttons
-ISR (PCINT1_vect)
+ISR(PCINT1_vect)
 {
   serviceButtons();
+}
+
+
+void enableWifi()
+{
+  pinMode(ESP_RESET_PIN, OUTPUT);
+  digitalWrite(ESP_RESET_PIN, HIGH);
+}
+
+void disableWifi()
+{
+  pinMode(ESP_RESET_PIN, OUTPUT);
+  digitalWrite(ESP_RESET_PIN, LOW);
 }
 
 bool wdtOn() {

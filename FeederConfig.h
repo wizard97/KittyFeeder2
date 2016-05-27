@@ -16,23 +16,27 @@ byte arrowChar[8] = {
 };
 
 #define VERSION "v2.0"
+
 #define RTC_SYNC_INTERVAL 30
 
+#define ENABLE_WIFI
 #define SSID        "KittyFeeder 2k"
 #define PASSWORD    "12345678"
 
-#define PIEZO_PIN1 9
+#define ESP_RESET_PIN A0
+
+#define PIEZO_PIN1 11
 #define PIEZO_PIN2 10
 
-#define SERVO1_PIN 6
-#define SERVO1_OPEN 90
-#define SERVO1_CLOSE 0
+#define SERVO1_PIN 8
+#define SERVO1_OPEN 120
+#define SERVO1_CLOSE 30
 
-#define SERVO2_PIN 7
-#define SERVO2_OPEN 0
-#define SERVO2_CLOSE 90
+#define SERVO2_PIN 9
+#define SERVO2_OPEN 90
+#define SERVO2_CLOSE 175
 
-#define THERMO_COOLER_PIN 4
+#define THERMO_COOLER_PIN 5
 #define MAX_COOLER_SET_TEMP 80
 #define MIN_COOLER_SET_TEMP 35
 
@@ -47,7 +51,7 @@ byte arrowChar[8] = {
 
 // Give it an interrupt pin, if I ever change to an ainterrupt lib
 #define DHTPIN 3
-#define DHTTYPE DHT11   // DHT 22  (AM2302), AM2321
+#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 
 //define buttons
 #define BTN_DEBOUNCE_TIME 5
