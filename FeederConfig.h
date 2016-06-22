@@ -24,6 +24,7 @@ byte arrowChar[8] = {
 // uncomment to disable wifi
 #define ENABLE_WIFI
 #define SSID        "KittyFeeder " VERSION
+
 #define PASSWORD    "thisIsPass"
 
 // ms for button debounce
