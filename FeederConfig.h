@@ -20,7 +20,7 @@ byte arrowChar[8] = {
 #define RTC_SYNC_INTERVAL 30
 
 #define ENABLE_WIFI
-#define SSID        "KittyFeeder 2k"
+#define SSID        "KittyFeeder " VERSION
 #define PASSWORD    "12345678"
 
 #define ESP_RESET_PIN A0
