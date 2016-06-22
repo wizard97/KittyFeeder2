@@ -12,6 +12,7 @@
 typedef enum InputHandler
 {
     IdleMenuHandler,
+    StaticMenuHandler,
     MenuNavigatorHandler,
     Feeder1MenuHandler,
     Feeder2MenuHandler,
@@ -53,6 +54,9 @@ void inputHandler()
     {
         case IdleMenuHandler:
             if (anyBtnWasPressed()) ms.select(false);
+            break;
+        case StaticMenuHandler:
+            if (anyBtnWasPressed()) ms.back();
             break;
         case MenuNavigatorHandler:
             menuNavigatorHandler();
@@ -119,6 +123,9 @@ void feederMenuHandler(const unsigned char index)
             stor->curr_loc = 0;
             feeds[index].saveSettingsToEE();
             ms.back();
+            // Reenable feed servicing
+             feeds[index].unlockFeed();
+             LOG(LOG_DEBUG, "Exiting feed menu, reenabling feed servicing");
             return;
         }
     }

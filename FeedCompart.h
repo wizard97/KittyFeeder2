@@ -61,7 +61,6 @@ private:
 public:
     FeedCompart(SoundPlayer &piezo, uint16_t servoPin, uint16_t eepromLoc,
         uint16_t closeDeg, uint16_t openDeg);
-    ~FeedCompart();
 
     void enable();
     void disable();
@@ -98,11 +97,13 @@ openDeg(openDeg), closeDeg(closeDeg), id(++_id_counter)
     msStateChange = 0;
 }
 
+/*
 FeedCompart::~FeedCompart()
 {
     doorServo.write(closeDeg);
     doorServo.detach();
 }
+*/
 
 
 void FeedCompart::begin()
@@ -179,7 +180,7 @@ void FeedCompart::service()
                 break;
 
             case OPEN:
-                if (millis() >= msStateChange + 60000*DOOR_OPEN_TIME) {
+                if (millis() >= msStateChange + 60000*DOOR_OPEN_TIME && !lock) {
                     msStateChange = millis();
                     currDoorState = CLOSING;
                     piezo.play(&SoundPlayer::close);

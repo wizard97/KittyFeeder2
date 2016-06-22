@@ -51,10 +51,13 @@ void displayIdleMenu(Menu *cp_menu);
 void displayMenu(Menu *cp_menu);
 void displayFeed1(Menu *cp_menu);
 void displayFeed2(Menu *cp_menu);
-// Helper function
-void displayFeed(const uint8_t index, StorageMenu *cp_menu);
 void displayTemp(Menu *cp_menu);
 void displaySystemInfo(Menu *cp_menu);
+void displayClockMenu(Menu *cp_menu);
+void displayWifiMenu(Menu *cp_menu);
+
+// Helper function
+void displayFeed(const uint8_t index, StorageMenu *cp_menu);
 
 uint8_t calcLcdTitleCenter(const char* str);
 
@@ -85,7 +88,7 @@ ThermoCooler cooler(THERMO_COOLER_PIN, &getTemp, EEPROM_COOLER_SETTINGS_LOC);
 // Menu variables
 MenuSystem ms;
 Menu mm_idle("Idle Menu", &displayIdleMenu);
-Menu mm("KittyFeeder v2.0", &displayMenu);
+Menu mm("KittyFeeder" VERSION, &displayMenu);
 Menu mm_feeds("Feeders", &displayMenu);
 // Menu storage struct to track state
 FeedMenuStorage fm1 = {.arrow_locs = feedMenuArrowLocs,
@@ -101,12 +104,12 @@ StorageMenu feeds_feed1("Left Feeder", &fm1, sizeof(fm1), &displayFeed1);
 StorageMenu feeds_feed2("Right Feeder", &fm2, sizeof(fm2), &displayFeed2);
 
 Menu mm_temp("Cooler", &displayTemp);
-Menu mm_clock("Clock");
-Menu mm_wifi("Wifi");
+Menu mm_clock("Clock", &displayClockMenu);
+Menu mm_wifi("Wifi", &displayWifiMenu);
 Menu mm_sys_info("About", &displaySystemInfo);
 
 // Pick pins without any special functionality
-LiquidCrystal lcd(22, 23, 24, 25, 26, 27);
+LiquidCrystal lcd(LCD_RS_PIN, LCD_EN_PIN, LCD_D4_PIN, LCD_D5_PIN, LCD_D6_PIN, LCD_D7_PIN);
 Scheduler ts;
 
 //////// TASKS /////////////
@@ -209,6 +212,7 @@ void displayFeed2(Menu *cp_menu)
   displayFeed(1, (StorageMenu *)cp_menu);
 
 }
+
 
 void displayFeed(const uint8_t index, StorageMenu *cp_menu)
 {
@@ -333,6 +337,29 @@ void displayIdleMenu(Menu *cp_menu)
            (int)round(cooler.getTemp()), feeds[1].isEnabled() ? "On" : "Off");
   lcd.setCursor(calcLcdTitleCenter(str), 1);
   lcd.print(str);
+}
+
+void displayWifiMenu(Menu *cp_menu)
+{
+  currHandler = StaticMenuHandler;
+  String ip = wifi.getLocalIP();
+  
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  // I have to do this due to incompatibility
+  lcd.print(ip.substring(ip.indexOf('"')+1, ip.indexOf('"', ip.indexOf('"')+1)));
+  lcd.setCursor(0, 1);
+  lcd.print(PASSWORD);
+}
+
+void displayClockMenu(Menu *cp_menu)
+{
+  currHandler = StaticMenuHandler;
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Set Time over");
+  lcd.setCursor(0, 1);
+  lcd.print("USB Serial");
 }
 
 
