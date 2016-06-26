@@ -180,7 +180,7 @@ void FeedCompart::service()
                 break;
 
             case OPEN:
-                if (millis() >= msStateChange + 60000*DOOR_OPEN_TIME && !lock) {
+                if (millis() - msStateChange > 60000*DOOR_OPEN_TIME && !lock) {
                     msStateChange = millis();
                     currDoorState = CLOSING;
                     piezo.play(&SoundPlayer::close);
