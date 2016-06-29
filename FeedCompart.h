@@ -42,17 +42,18 @@ class FeedCompart
 
 private:
     SoundPlayer &piezo;
-    const uint16_t eepromLoc;
-    EECompartSettings settings;
-    Servo doorServo;
     const uint16_t servoPin;
+    const uint16_t eepromLoc;
+    // Servo open and close positions
+    Servo doorServo;
+    const int16_t openDeg, closeDeg;
+    uint8_t id;
+
+    EECompartSettings settings;
     DoorState currDoorState;
     // Timestamp of state change for door
     unsigned long msStateChange;
-    // Servo open and close positions
-    const uint16_t openDeg, closeDeg;
     bool lock;
-    uint8_t id;
     static uint8_t _id_counter;
 
     bool loadSettingsFromEE();
@@ -60,7 +61,7 @@ private:
 
 public:
     FeedCompart(SoundPlayer &piezo, uint16_t servoPin, uint16_t eepromLoc,
-        uint16_t closeDeg, uint16_t openDeg);
+        int16_t closeDeg, int16_t openDeg);
 
     void enable();
     void disable();
@@ -88,8 +89,8 @@ public:
 //Default it to zero
 uint8_t FeedCompart::_id_counter = 0;
 
-FeedCompart::FeedCompart(SoundPlayer &piezo, uint16_t servoPin, uint16_t eepromLoc, uint16_t closeDeg, uint16_t openDeg)
-: piezo(piezo), doorServo(), servoPin(servoPin), eepromLoc(eepromLoc),
+FeedCompart::FeedCompart(SoundPlayer &piezo, uint16_t servoPin, uint16_t eepromLoc, int16_t closeDeg, int16_t openDeg)
+: piezo(piezo), servoPin(servoPin), eepromLoc(eepromLoc), doorServo(),
 openDeg(openDeg), closeDeg(closeDeg), id(++_id_counter)
 {
     lock = false;
@@ -171,10 +172,11 @@ void FeedCompart::service()
             case OPENING:
 
                 if (doorServo.read() != openDeg) {
-                    doorServo.write(map((millis() - msStateChange), 0,
+                    doorServo.write(map(constrain(millis() - msStateChange, 0, DOOR_SPEED), 0,
                         DOOR_SPEED, closeDeg, openDeg));
                 } else {
                     msStateChange = millis();
+                    LOG(LOG_DEBUG, "Feeder %d opened!", id);
                     currDoorState = OPEN;
                 }
                 break;
@@ -191,10 +193,11 @@ void FeedCompart::service()
 
             case CLOSING:
                 if (doorServo.read() != closeDeg) {
-                    doorServo.write(map((millis() - msStateChange), 0,
+                    doorServo.write(map(constrain(millis() - msStateChange, 0, DOOR_SPEED), 0,
                         DOOR_SPEED, openDeg, closeDeg));
                 } else {
                     msStateChange = millis();
+                    LOG(LOG_DEBUG, "Feeder %d closed!", id);
                     currDoorState = CLOSED;
                     // disable feed
                     settings.enabled = false;
@@ -203,7 +206,7 @@ void FeedCompart::service()
                 break;
 
             default:
-                msStateChange = millis();
+                LOG(LOG_ERROR, "Feeder %d state machine in invalid state!", id);
                 currDoorState = CLOSED;
                 doorServo.write(closeDeg);
                 break;
@@ -234,7 +237,7 @@ bool FeedCompart::isEnabled()
 bool FeedCompart::loadSettingsFromEE()
 {
     // Some crazy pointer casting to perform a memcpy so we can use the EEPROM macro
-    for (int i=0; i<FEED_COMPART_EE_SIZE; i++)
+    for (uint8_t i=0; i<FEED_COMPART_EE_SIZE; i++)
     {
         ((unsigned char*)&settings)[i] = EEPROM[eepromLoc + i];
     }
@@ -252,7 +255,7 @@ void FeedCompart::saveSettingsToEE()
     // update crc
     settings.crc = tmp;
     // Some crazy pointer casting to perform a memcpy so we can use the EEPROM macro
-    for (int i=0; i<sizeof(settings); i++)
+    for (uint8_t i=0; i<sizeof(settings); i++)
     {
         EEPROM[eepromLoc + i] = ((unsigned char*)&settings)[i];
     }

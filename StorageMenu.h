@@ -13,7 +13,7 @@ public:
         return _stor;
     }
 
-    void* setStorage(void *stor, uint16_t len)
+    void setStorage(void *stor, uint16_t len)
     {
         _stor = stor;
         _stor_len = len;

@@ -153,15 +153,15 @@ public:
         pinMode(_pin1, OUTPUT);
         pinMode(_pin2, OUTPUT);
 
+        digitalWrite(_pin1, LOW);
+        digitalWrite(_pin2, HIGH);
+
         digitalWrite(_pin1, HIGH);
         digitalWrite(_pin2, LOW);
+        delayMicroseconds(100);
 
         digitalWrite(_pin1, LOW);
         digitalWrite(_pin2, HIGH);
-        delay(1);
-
-        digitalWrite(_pin1, HIGH);
-        digitalWrite(_pin2, LOW);
     }
 
 private:

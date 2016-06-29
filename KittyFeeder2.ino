@@ -152,7 +152,7 @@ void setup() {
   #endif
   
   // Begin KittyFeeder objects
-  for (int i = 0; i < sizeof(feeds) / sizeof(feeds[0]); i++)
+  for (uint8_t i = 0; i < sizeof(feeds) / sizeof(feeds[0]); i++)
   {
     feeds[i].begin();
   }
@@ -179,7 +179,7 @@ void setup() {
 
   if (wifi.setOprToSoftAP() && wifi.setSoftAPParam(SSID, PASSWORD)
       && wifi.enableMUX() && wifi.startTCPServer(80) && wifi.setTCPServerTimeout(10)) {
-    LOG(LOG_DEBUG, "Success creating AP SSID: '%s', PASS: '%s'", SSID, PASSWORD);
+    LOG(LOG_DEBUG, "Created AP SSID: '%s', PASS: '%s'", SSID, PASSWORD);
   } else {
     LOG(LOG_ERROR, "Failed to create wifi AP");
   }
@@ -306,7 +306,7 @@ void displayTemp(Menu *cp_menu)
 void displaySystemInfo(Menu *cp_menu)
 {
   currHandler = MenuNavigatorHandler;
-  char str[] = "Version: "VERSION;
+  char str[] = "Version: " VERSION;
   lcd.clear();
   lcd.setCursor(calcLcdTitleCenter(str), 0);
   lcd.print(str);
@@ -399,7 +399,7 @@ void servicePiezo()
 
 bool anyBtnWasPressed()
 {
-  for (int i = 0; i < sizeof(bAll) / sizeof(bAll[0]); i++)
+  for (uint8_t i = 0; i < sizeof(bAll) / sizeof(bAll[0]); i++)
   {
     // Some weird reason where they are Null
     if (bAll[i]->wasPressed()) return true;
@@ -409,7 +409,7 @@ bool anyBtnWasPressed()
 
 bool anyBtnIsPressed()
 {
-  for (int i = 0; i < sizeof(bAll) / sizeof(bAll[0]); i++)
+  for (uint8_t i = 0; i < sizeof(bAll) / sizeof(bAll[0]); i++)
   {
     // Some weird reason where they are Null
     if (bAll[i]->isPressed()) return true;
@@ -419,7 +419,7 @@ bool anyBtnIsPressed()
 
 void serviceButtons()
 {
-  for (int i = 0; i < sizeof(bAll) / sizeof(bAll[0]); i++)
+  for (uint8_t i = 0; i < sizeof(bAll) / sizeof(bAll[0]); i++)
   {
     // Some weird reason where they are Null
     if (bAll[i]) bAll[i]->read();
@@ -439,7 +439,7 @@ void serviceButtons()
 void serviceFeeds()
 {
   bool enCooler = false;
-  for (int i = 0; i < sizeof(feeds) / sizeof(feeds[0]); i++)
+  for (uint8_t i = 0; i < sizeof(feeds) / sizeof(feeds[0]); i++)
   {
     feeds[i].service();
     enCooler |= feeds[i].isEnabled();
@@ -496,18 +496,18 @@ void serviceWifi()
     snprintf(mstr, sizeof(mstr), mins < 10 ? ltt : gtet, mins);
     snprintf(sstr, sizeof(sstr), secs < 10 ? ltt : gtet, secs);
     
-    int buflen = MIN(snprintf((char*)buffer, sizeof(buffer), 
+    unsigned int buflen = MIN((unsigned int)snprintf((char*)buffer, sizeof(buffer), 
         "<p>System Time: %s %d:%s:%s (uptime: %d mins)</p>", 
-        dayShortStr(weekday()), hour(), mstr, sstr, millis()/60000), sizeof(buffer)-1);
+        dayShortStr(weekday()), hour(), mstr, sstr, (int)(millis()/60000)), sizeof(buffer)-1);
     wifi.send(mux_id, (uint8_t *)buffer, buflen);
         
-    buflen = MIN(snprintf((char*)buffer, sizeof(buffer), 
+    buflen = MIN((unsigned int)snprintf((char*)buffer, sizeof(buffer), 
         "<p>Cooler: %dF (set: %dF) (%d%%)</p>", 
         (int)round(cooler.getTemp()), cooler.getSetTemp(), cooler.getPwmPercent()), sizeof(buffer)-1);
 
     wifi.send(mux_id, (uint8_t *)buffer, buflen);
 
-    buflen = MIN(snprintf((char*)buffer, sizeof(buffer), 
+    buflen = MIN((unsigned int)snprintf((char*)buffer, sizeof(buffer), 
         "<p>Feed #1: %s (%s, %d:%d), Feed #2: %s (%s, %d:%d) </p><body></html>", 
         feeds[0].isEnabled() ? "On" : "Off", dayShortStr(feeds[0].getWeekDay()), feeds[0].getHour(), feeds[0].getMin(),
         feeds[1].isEnabled() ? "On" : "Off", dayShortStr(feeds[1].getWeekDay()), feeds[1].getHour(), feeds[1].getMin()),
@@ -581,6 +581,7 @@ bool wdtOn() {
   //  WDTCSR = (1<<WDIE)|(WDTO_2S & 0x2F);  // interrupt only without reset
   //Enable global interrupts
   sei();
+  return true;
 }
 
 /**
