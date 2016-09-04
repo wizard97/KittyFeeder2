@@ -42,7 +42,7 @@ byte arrowChar[8] = {
 // Servo position settings
 #define SERVO1_OPEN 110
 #define SERVO1_CLOSE 20
-#define SERVO2_OPEN 90
+#define SERVO2_OPEN 80
 #define SERVO2_CLOSE 175
 
 // LCD Constants

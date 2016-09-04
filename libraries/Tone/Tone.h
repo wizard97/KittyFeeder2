@@ -1,14 +1,34 @@
-#ifndef SOUND_PLAYER_H
-#define SOUND_PLAYER_H
+/* $Id: Tone.h 113 2010-06-16 20:16:29Z bhagman@roguerobotics.com $
 
-#include "toneAC2.h"
-#include "Arduino.h"
+  A Tone Generator Library
 
-#define MAX_NOTES 20
+  Written by Brett Hagman
+  http://www.roguerobotics.com/
+  bhagman@roguerobotics.com
+
+    This library is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+*************************************************/
+
+#ifndef _Tone_h
+#define _Tone_h
+
+#include <stdint.h>
 
 /*************************************************
- * Public Constants
- *************************************************/
+* Public Constants
+*************************************************/
 
 #define NOTE_B0  31
 #define NOTE_C1  33
@@ -100,78 +120,23 @@
 #define NOTE_D8  4699
 #define NOTE_DS8 4978
 
-struct melody
+
+/*************************************************
+* Definitions
+*************************************************/
+
+class Tone
 {
-    uint16_t durr[MAX_NOTES];
-    int notes[MAX_NOTES];
-    uint8_t len;
+  public:
+    void begin(uint8_t tonePin);
+    bool isPlaying();
+    void play(uint16_t frequency, uint32_t duration = 0);
+    void stop();
+
+  private:
+    static uint8_t _tone_pin_count;
+    uint8_t _pin;
+    int8_t _timer;
 };
 
-class SoundPlayer
-{
-public:
-    static struct melody boot;
-    SoundPlayer(int pin1, int pin2)
-    {
-        _pin1 = pin1;
-        _pin2 = pin2;
-        _curr = NULL;
-        _idx = 0;
-    }
-
-    void service()
-    {
-        // Something to play
-        if (_curr != NULL && _curr->durr[_idx] + _start <= millis())
-        {
-            _idx++;
-            // Last element?
-            if (_idx >= _curr->len) {
-                noToneAC2();
-                _curr = NULL;
-                _idx = 0;
-            } else {
-                _start = millis();
-                toneAC2(_pin1, _pin2, _curr->notes[_idx], _curr->durr[_idx]);
-            }
-        }
-    }
-
-    void play(struct melody *m)
-    {
-        _curr = m;
-        _start = millis();
-        toneAC2(_pin1, _pin2, m->notes[0], m->durr[0]);
-        _idx = 0;
-
-    }
-
-    void click()
-    {
-        pinMode(_pin1, OUTPUT);
-        pinMode(_pin2, OUTPUT);
-
-        digitalWrite(_pin1, HIGH);
-        digitalWrite(_pin2, LOW);
-
-        digitalWrite(_pin1, LOW);
-        digitalWrite(_pin2, HIGH);
-        delay(1);
-
-        digitalWrite(_pin1, HIGH);
-        digitalWrite(_pin2, LOW);
-    }
-
-private:
-    int _pin1;
-    int _pin2;
-    const struct melody *_curr;
-    unsigned long long _start;
-    uint8_t _idx;
-};
-
-struct melody SoundPlayer::boot =
-    { .durr = {100,100,100,100,100,100,200},
-    .notes = {NOTE_C4, NOTE_E4, NOTE_G4, NOTE_C5, NOTE_G4, NOTE_E4, NOTE_C4},
-    .len = 7};
 #endif
